@@ -33,6 +33,12 @@ export const US_TYPES: UsType[] = [
   { id: 'hcg', name: 'Human chorionic gonadotropin (HCG) test system', cfr: '21 CFR 862.1155', panel: 'Clinical Chemistry and Toxicology', cls: 'II', exempt: false, clia: 'Over-the-counter home-use tests are CLIA-waived.' },
   { id: 'glucose', name: 'Glucose test system (blood glucose meter for self-monitoring)', cfr: '21 CFR 862.1345', panel: 'Clinical Chemistry and Toxicology', cls: 'II', exempt: false, clia: 'Over-the-counter self-monitoring meters are CLIA-waived; professional use needs a CLIA waiver by application or is moderate complexity.' },
   { id: 'specimen_container', name: 'Specimen transport and storage container', cfr: '21 CFR 864.3250', panel: 'Hematology and Pathology', cls: 'I', exempt: true },
+  { id: 'surgical_mesh', name: 'Surgical mesh', cfr: '21 CFR 878.3300', panel: 'General and Plastic Surgery', cls: 'II', exempt: false, note: 'Surgical mesh for transvaginal repair of pelvic organ prolapse was reclassified to class III (PMA) in 2016; this type is for other uses such as hernia repair.' },
+  { id: 'breast_implant', name: 'Silicone gel-filled breast prosthesis', cfr: '21 CFR 878.3540', panel: 'General and Plastic Surgery', cls: 'III', exempt: false, note: 'An approved PMA is required before marketing; FDA also requires a boxed warning and a patient decision checklist in the labelling.' },
+  { id: 'lens_care', name: 'Soft (hydrophilic) contact lens care products', cfr: '21 CFR 886.5928', panel: 'Ophthalmic', cls: 'II', exempt: false, note: 'Special controls: FDA guidance on 510(k)s for contact lens care products.' },
+  { id: 'ventilator', name: 'Continuous ventilator', cfr: '21 CFR 868.5895', panel: 'Anesthesiology', cls: 'II', exempt: false },
+  { id: 'ngs_tumor', name: 'Next generation sequencing based tumor profiling test', cfr: '21 CFR 866.6080', panel: 'Immunology and Microbiology', cls: 'II', exempt: false, note: 'Class II with special controls: the mutations reported, analytical validation and the clinical evidence for the panel. A claim to select patients for a specific medicine makes the test a companion diagnostic, which usually needs PMA.' },
+  { id: 'blood_grouping', name: 'Blood grouping reagent (anti-A, anti-B, anti-D)', cfr: '21 CFR 660.20 (PHS Act section 351)', panel: 'CBER (biologics)', cls: 'BLA', exempt: false, note: 'Blood grouping reagents are licensed biological products, reviewed by CBER.' },
   { id: 'hiv_donor', name: 'HIV screening assay for blood and plasma donors', cfr: 'PHS Act section 351; donor testing under 21 CFR 610.40', panel: 'CBER (biologics)', cls: 'BLA', exempt: false, note: 'Donor screening tests used by blood establishments are licensed as biological products by CBER, not cleared as devices by CDRH.' },
 ]
 
@@ -49,9 +55,36 @@ function result(partial: Omit<RegionResult, 'region' | 'regulation' | 'hits' | '
   return { region: 'US', regulation: 'FD&C Act section 513; 21 CFR Parts 800 to 898', notes: [], ...partial }
 }
 
+// CLIA categorisation (42 CFR 493) for IVD tests, by who performs the test.
+export function cliaFact(a: Answers): { label: string; value: string } | null {
+  if (a.kind !== 'ivd' || a.ivd_a !== 'no' || a.us_type === 'hiv_donor' || a.us_type === 'blood_grouping') return null
+  if (a.ivd_user === 'self') return { label: 'CLIA', value: 'Waived: tests cleared or approved for home use are waived (42 CFR 493.15(c)).' }
+  if (a.ivd_user === 'near_patient') return { label: 'CLIA', value: 'Moderate complexity unless waived. To be used in point-of-care sites holding a certificate of waiver, apply for a CLIA waiver: CLIA Waiver by Application, or a Dual 510(k) and CLIA Waiver by Application.' }
+  return { label: 'CLIA', value: 'Moderate or high complexity, set by FDA after clearance or approval from the seven criteria in 42 CFR 493.17.' }
+}
+
+function cdx(a: Answers, r: RegionResult): RegionResult {
+  if (a.kind !== 'ivd' || !Array.isArray(a.ivd_c) || !(a.ivd_c as string[]).includes('companion') || r.incomplete) return r
+  const steps = [...r.steps]
+  if (a.cdx_stage === 'codev') {
+    steps.unshift({ step: 'Plan the test with the medicine', detail: 'Pre-Submission with CDRH, coordinated with the drug review division. Use the clinical trial assay in the pivotal trial, under an IDE if it is a significant-risk use (21 CFR 812), or covered in the IND.' })
+    steps.push({ step: 'Contemporaneous approval', detail: 'FDA expects the companion diagnostic to be approved or cleared at the same time as the medicine; the drug labelling names the test type and the test labelling names the medicine.' })
+  }
+  const facts = [...(r.facts ?? []), { label: 'Companion diagnostic', value: 'FDA guidance: In Vitro Companion Diagnostic Devices (2014). Most companion diagnostics are class III and need PMA.' }]
+  return { ...r, steps, facts }
+}
+
 export const US_PACK: RegionPack = {
-  id: 'US', name: 'United States', regulator: 'FDA', version: '1.0.0', asOf: '2026-10-20',
+  id: 'US', name: 'United States', regulator: 'FDA', version: '1.1.0', asOf: '2026-10-20',
   classify(a: Answers): RegionResult {
+    const r = classifyUs(a)
+    const c = cliaFact(a)
+    return cdx(a, c && !r.incomplete ? { ...r, facts: [...(r.facts ?? []), c] } : r)
+  },
+}
+
+function classifyUs(a: Answers): RegionResult {
+  {
     const id = a.us_type as string | undefined
     if (!id) return result({ cls: '?', hits: [], route: '', reviewer: '', steps: [], documents: [], timeline: { label: '', source: '' }, incomplete: 'Choose the US device type.' })
 
@@ -126,5 +159,5 @@ export const US_PACK: RegionPack = {
       timeline: special ? { label: 'Special 510(k)s are processed within 30 days.', source: 'FDA guidance: The Special 510(k) Program' } : { label: 'MDUFA V goal: a decision within 90 FDA days for 95% of 510(k)s.', source: 'MDUFA V commitment letter' },
       notes,
     })
-  },
+  }
 }

@@ -6,10 +6,12 @@ export interface RuleHit {
   text: string        // plain-words statement of the rule part that applied
 }
 
+export type RegionId = 'EU' | 'US' | 'IN'
+
 export interface RouteStep { step: string; detail: string }
 
 export interface RegionResult {
-  region: 'EU' | 'US'
+  region: RegionId
   regulation: string
   cls: string                 // final class, e.g. "IIb", "Is", "C", "Class II"
   hits: RuleHit[]             // every rule that applied
@@ -20,11 +22,12 @@ export interface RegionResult {
   documents: string[]         // documents needed
   timeline: { label: string; source: string }
   notes: string[]
+  facts?: { label: string; value: string }[]   // region-specific extras: licence forms, CLIA category
   incomplete?: string         // why a class cannot be given yet
 }
 
 export interface RegionPack {
-  id: 'EU' | 'US'
+  id: RegionId
   name: string
   regulator: string           // Explorer regulator key (links back to the regulator card)
   version: string

@@ -13,6 +13,7 @@ import type { RegulatorKey, RegulatorParams, ProductCategory, Stage } from './da
 import { REGULATORS, CATEGORY_META, CATEGORY_ORDER, SHAPE_META } from './data/regulators'
 import { buildStages, totalTrialMonths } from './data/stages'
 import { GLOSSARY } from './data/glossary'
+import ClassifyView from './wizard/ClassifyView'
 
 // ---------------------------------------------------------------------------
 // Stepper
@@ -226,7 +227,7 @@ function SearchView({ onJump }: { onJump: (r: RegulatorKey, category: ProductCat
 const REGIONS = Array.from(new Set(REGULATORS.map((r) => r.region)))
 
 export default function App() {
-  const [mode, setMode] = useState<'explore' | 'compare' | 'directory' | 'glossary' | 'search'>('explore')
+  const [mode, setMode] = useState<'explore' | 'compare' | 'classify' | 'directory' | 'glossary' | 'search'>(() => (typeof location !== 'undefined' && location.hash === '#classify' ? 'classify' : 'explore'))
   const [category, setCategory] = useState<ProductCategory>('small-molecule')
   const [regulatorKey, setRegulatorKey] = useState<RegulatorKey>('FDA')
   const [selectedId, setSelectedId] = useState<string>('preclinical')
@@ -264,7 +265,7 @@ export default function App() {
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         <header className="space-y-2">
           <p className="text-xs uppercase tracking-widest font-mono text-lab-text-muted">Global Regulatory Pathway Explorer</p>
-          <h1 className="text-xl font-mono font-bold text-lab-text">21 regulators · 13 product categories</h1>
+          <h1 className="text-xl font-mono font-bold text-lab-text">21 regulators · 13 product categories · device classification wizard</h1>
           <p className="text-sm text-lab-text-muted">How a health product moves from discovery to approval, across every major world region and product type.</p>
         </header>
 
@@ -290,9 +291,9 @@ export default function App() {
         </Card>
 
         <div className="flex gap-2 flex-wrap">
-          {(['explore', 'compare', 'directory', 'glossary', 'search'] as const).map((m) => (
+          {(['explore', 'compare', 'classify', 'directory', 'glossary', 'search'] as const).map((m) => (
             <Button key={m} onClick={() => setMode(m)} variant="outline" size="sm" className="border-2 font-mono capitalize" style={mode === m ? { borderColor: 'hsl(var(--lab-text))', color: 'hsl(var(--lab-text))' } : { borderColor: 'hsl(var(--lab-line))', color: 'hsl(var(--lab-text-muted))' }}>
-              {m === 'compare' ? 'Compare up to 4' : m}
+              {m === 'compare' ? 'Compare up to 4' : m === 'classify' ? 'Classify a device' : m}
             </Button>
           ))}
         </div>
@@ -328,6 +329,15 @@ export default function App() {
                 💡 <span className="font-mono text-lab-amber">Did you know:</span> {regulator.funFact}
               </div>
             </div>
+
+            {(category === 'device' || category === 'diagnostic') && (
+              <Card className="bg-lab-panel border-2 border-lab-ema">
+                <CardContent className="pt-4 flex items-center justify-between gap-3 flex-wrap">
+                  <p className="text-sm text-lab-text">Work out the exact class of a {category === 'diagnostic' ? 'diagnostic' : 'device'} under the EU and US rules, with the route and documents.</p>
+                  <Button size="sm" className="font-mono" onClick={() => setMode('classify')}>Open the classification wizard →</Button>
+                </CardContent>
+              </Card>
+            )}
 
             <TimelineRanking category={category} />
 
@@ -389,11 +399,12 @@ export default function App() {
           </>
         )}
 
+        {mode === 'classify' && <ClassifyView startKind={category === 'diagnostic' ? 'ivd' : category === 'device' ? 'device' : undefined} />}
         {mode === 'directory' && <DirectoryView />}
         {mode === 'glossary' && <GlossaryView />}
         {mode === 'search' && <SearchView onJump={jumpFromSearch} />}
 
-        <p className="text-center text-xs text-lab-text-muted font-mono">Educational overview only, not regulatory or legal advice — always consult current official agency guidance for a specific product. Detail depth varies by agency based on available public documentation. Regulatory approval is separate from pricing/reimbursement (health technology assessment), which is outside this app\u2019s scope.</p>
+        <p className="text-center text-xs text-lab-text-muted font-mono">Educational overview only, not regulatory or legal advice — always consult current official agency guidance for a specific product. Detail depth varies by agency based on available public documentation. Regulatory approval is separate from pricing/reimbursement (health technology assessment), which is outside this app’s scope.</p>
         <p className="text-center text-xs text-lab-text-muted font-mono">built by Khan Gulrez Shagufa Fazal Ahmed</p>
       </div>
     </div>

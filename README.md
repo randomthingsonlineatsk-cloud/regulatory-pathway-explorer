@@ -1,18 +1,29 @@
 # Global Regulatory Pathway Explorer
 
-Compare regulatory pathways across 16 authorities.
+Compare how a health product moves from discovery to approval across 21 regulators and 13 product categories.
 
-**Live demo:** https://macaly-wdudkdntiu579vs2jhhuidt0-prod.macaly-app.com
+**Live site:** https://randomthingsonlineatsk-cloud.github.io/regulatory-pathway-explorer/
+
+**Original version (Macaly):** https://macaly-wdudkdntiu579vs2jhhuidt0-prod.macaly-app.com. It stays online unchanged. New features are built only in this repository.
 
 > This is a fictional, educational demonstration. Do not use it for real patient data, clinical decisions or regulatory submissions.
 
 ## Features
-- 16 authorities, including FDA, EMA, MHRA, PMDA, NMPA, CDSCO and WHO Prequalification
-- 12 product categories
-- Stage-by-stage pathway and an illustrative timeline chart
+- 21 regulators, including FDA, Health Canada, EMA, MHRA, Swissmedic, TGA, PMDA, NMPA, CDSCO, the African Medicines Agency and WHO Prequalification
+- 13 product categories: small molecule, biologic, vaccine, cell and gene therapy, pediatric, orphan, generic, biosimilar, medical device, diagnostic (IVD), herbal and traditional medicine, homeopathy and cosmetic
+- A stage-by-stage pathway for each regulator and category, with the key documents for each stage
+- Compare up to four regulators side by side, an illustrative timeline ranking, a regulator directory, a glossary and a search across every pathway
+
+## Run it locally
+```
+npm install
+npm test
+npm run dev
+```
+`npm run build` writes the static site to `dist/`. It uses relative paths, so it works from any GitHub Pages path.
 
 ## Tech stack
-Built on Macaly Cloud.
+React, TypeScript, Vite and Tailwind CSS. It is a static site with no server and no sign-in. It was first built on Macaly Cloud and moved here in October 2026.
 
 ## Attribution
 Created by **Khan Gulrez Shagufa Fazal Ahmed**.

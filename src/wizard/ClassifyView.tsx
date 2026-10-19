@@ -4,13 +4,13 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { visibleQuestions, isAnswered, type Answers, type Question } from './questions'
 import { US_OPTIONS } from './us'
-import { classifyAll, PACKS, MDR_CLASSES, IVDR_CLASSES } from './engine'
+import { classifyAll, PACKS, MDR_CLASSES, IVDR_CLASSES, IN_CLASSES } from './engine'
 import { LIBRARY, type LibraryDevice } from './library'
 import { MISSIONS, scoreMission, usRouteKey, type Level, type Task } from './missions'
 import { loadAttempts, saveAttempt, loadProfiles, saveProfile, deleteProfile } from './store'
 import type { RegionResult } from './types'
 
-const REGION_COLOR: Record<string, string> = { EU: 'hsl(258 70% 65%)', US: 'hsl(208 85% 58%)' }
+const REGION_COLOR: Record<string, string> = { EU: 'hsl(258 70% 65%)', US: 'hsl(208 85% 58%)', IN: 'hsl(30 80% 55%)' }
 const chip = (on: boolean, color = 'hsl(var(--lab-text))') => (on ? { borderColor: color, color } : { borderColor: 'hsl(var(--lab-line))', color: 'hsl(var(--lab-text-muted))' })
 
 function download(name: string, text: string, type = 'text/csv') {
@@ -45,6 +45,11 @@ function ResultCard({ r, hidden }: { r: RegionResult; hidden?: boolean }) {
         )}
         {!hidden && !r.incomplete && (
           <>
+            {r.facts && r.facts.length > 0 && (
+              <dl className="space-y-1.5 text-xs rounded border border-lab-line p-2">
+                {r.facts.map((f, i) => <div key={i}><dt className="font-mono text-lab-text-muted">{f.label}</dt><dd className="text-lab-text">{f.value}</dd></div>)}
+              </dl>
+            )}
             <div>
               <p className="text-xs font-mono text-lab-text-muted">Route</p>
               <p className="text-lab-text">{r.route}</p>
@@ -111,7 +116,7 @@ function Wizard({ answers, setAnswers, title }: { answers: Answers; setAnswers: 
   const firstOpen = questions.findIndex((q) => !isAnswered(q, answers))
   const [idx, setIdx] = useState(firstOpen < 0 ? questions.length : firstOpen)
   const [guessMode, setGuessMode] = useState(false)
-  const [guess, setGuess] = useState<{ EU?: string; US?: string }>({})
+  const [guess, setGuess] = useState<{ EU?: string; US?: string; IN?: string }>({})
   const [checked, setChecked] = useState(false)
   const [name, setName] = useState('')
   const results = useMemo(() => classifyAll(answers), [answers])
@@ -134,13 +139,13 @@ function Wizard({ answers, setAnswers, title }: { answers: Answers; setAnswers: 
   })
 
   function exportCsv() {
-    const rows = [['Region', 'Regulation', 'Class', 'Deciding rule', 'Route', 'Reviewer', 'Timeline']]
-    for (const r of results) rows.push([r.region, r.regulation, r.cls, r.decisive?.rule ?? '', r.route, r.reviewer, r.timeline.label])
+    const rows = [['Region', 'Regulation', 'Class', 'Deciding rule', 'Route', 'Reviewer', 'Timeline', 'Forms and other facts']]
+    for (const r of results) rows.push([r.region, r.regulation, r.cls, r.decisive?.rule ?? '', r.route, r.reviewer, r.timeline.label, (r.facts ?? []).map((f) => `${f.label}: ${f.value}`).join('; ')])
     download(`classification-${(name || title || 'device').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv`, rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n') + '\nTraining use only. Not a regulatory determination.\n')
   }
   const euOpts = answers.kind === 'ivd' ? IVDR_CLASSES : MDR_CLASSES
   const usRoutes = ['Exempt: register and list', 'Traditional 510(k)', 'Special 510(k)', 'De Novo', 'Premarket approval (PMA)', 'Humanitarian Device Exemption', 'Biologics License Application (CBER)']
-  const eu = results.find((r) => r.region === 'EU')!, us = results.find((r) => r.region === 'US')!
+  const eu = results.find((r) => r.region === 'EU')!, us = results.find((r) => r.region === 'US')!, ind = results.find((r) => r.region === 'IN')!
 
   return (
     <div className="space-y-4">
@@ -158,20 +163,21 @@ function Wizard({ answers, setAnswers, title }: { answers: Answers; setAnswers: 
       {guessMode && done && !checked && (
         <Card className="bg-lab-panel border-2 border-lab-amber gap-3">
           <CardContent className="pt-4 space-y-3">
-            <p className="text-sm text-lab-text">Before you see the answer: what is the EU class, and what is the US route?</p>
+            <p className="text-sm text-lab-text">Before you see the answer: what is the EU class, the US route and the India class?</p>
             <div className="flex flex-wrap gap-1.5">{euOpts.map((c) => <Button key={c} size="sm" variant="outline" className="border-2 font-mono h-7" style={chip(guess.EU === c, REGION_COLOR.EU)} onClick={() => setGuess({ ...guess, EU: c })}>EU {c}</Button>)}</div>
             <div className="flex flex-wrap gap-1.5">{usRoutes.map((c) => <Button key={c} size="sm" variant="outline" className="border-2 font-mono h-7 text-[11px]" style={chip(guess.US === c, REGION_COLOR.US)} onClick={() => setGuess({ ...guess, US: c })}>{c}</Button>)}</div>
-            <Button className="font-mono" disabled={!guess.EU || !guess.US} onClick={() => setChecked(true)}>Check my answer</Button>
+            <div className="flex flex-wrap gap-1.5">{IN_CLASSES.map((c) => <Button key={c} size="sm" variant="outline" className="border-2 font-mono h-7" style={chip(guess.IN === c, REGION_COLOR.IN)} onClick={() => setGuess({ ...guess, IN: c })}>India {c}</Button>)}</div>
+            <Button className="font-mono" disabled={!guess.EU || !guess.US || !guess.IN} onClick={() => setChecked(true)}>Check my answer</Button>
           </CardContent>
         </Card>
       )}
       {guessMode && checked && (
         <p className="rounded border-2 border-lab-amber bg-lab-panel-strong p-2 text-sm font-mono">
-          EU: {guess.EU === eu.cls ? '✓ correct' : `✗ you said ${guess.EU}, it is ${eu.cls}`} · US: {guess.US === usRouteKey(us) ? '✓ correct' : `✗ you said ${guess.US}, it is ${usRouteKey(us)}`}
+          EU: {guess.EU === eu.cls ? '✓ correct' : `✗ you said ${guess.EU}, it is ${eu.cls}`} · US: {guess.US === usRouteKey(us) ? '✓ correct' : `✗ you said ${guess.US}, it is ${usRouteKey(us)}`} · India: {guess.IN === ind.cls ? '✓ correct' : `✗ you said ${guess.IN}, it is ${ind.cls}`}
         </p>
       )}
 
-      <div className="grid md:grid-cols-2 gap-3">
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
         {results.map((r) => <ResultCard key={r.region} r={r} hidden={guessMode && !checked} />)}
       </div>
 
@@ -200,7 +206,7 @@ function Wizard({ answers, setAnswers, title }: { answers: Answers; setAnswers: 
           <Button variant="outline" className="border-2 font-mono" onClick={exportCsv}>Download CSV</Button>
         </div>
       )}
-      <p className="text-xs text-lab-text-muted">Training use only: the wizard applies the rules as written to your answers and is not a regulatory determination. EU pack {PACKS[0].version} and US pack {PACKS[1].version}, as of {PACKS[0].asOf}.</p>
+      <p className="text-xs text-lab-text-muted">Training use only: the wizard applies the rules as written to your answers and is not a regulatory determination. {PACKS.map((p) => `${p.name} pack ${p.version}`).join(', ')}, as of {PACKS[0].asOf}.</p>
     </div>
   )
 }
@@ -231,7 +237,7 @@ function Library({ onOpen }: { onOpen: (d: LibraryDevice) => void }) {
           <p className="text-[10px] uppercase tracking-widest font-mono text-lab-text-muted">Your saved profiles</p>
           {profiles.map((p) => (
             <div key={p.id} className="flex items-center gap-2 text-sm">
-              <button className="font-mono text-lab-fda hover:underline" onClick={() => onOpen({ id: p.id, name: p.name, maker: 'You', group: 'Non-invasive', purpose: '', description: '', answers: p.answers, expect: { EU: '', US: '' } })}>{p.name}</button>
+              <button className="font-mono text-lab-fda hover:underline" onClick={() => onOpen({ id: p.id, name: p.name, maker: 'You', group: 'Non-invasive', purpose: '', description: '', answers: p.answers, expect: { EU: '', US: '', IN: '' } })}>{p.name}</button>
               <span className="text-xs text-lab-text-muted">{new Date(p.savedAt).toLocaleDateString()}</span>
               <button className="text-xs text-lab-red" onClick={() => { deleteProfile(p.id); setProfiles(loadProfiles()) }}>Delete</button>
             </div>
@@ -333,8 +339,8 @@ export default function ClassifyView({ startKind }: { startKind?: 'device' | 'iv
     <div className="space-y-4">
       <Card className="bg-lab-panel border-lab-line gap-2 py-4">
         <CardContent>
-          <p className="text-sm text-lab-text">Describe a device once and see how the EU (MDR or IVDR) and the US (FDA) classify it, which rule decides, the route, the documents and an indicative timeline.</p>
-          <p className="text-xs text-lab-text-muted mt-1">More regions (India, then the UK, Canada, Australia, Japan, China and Switzerland), software and combination products are coming in later phases.</p>
+          <p className="text-sm text-lab-text">Describe a device once and see how the EU (MDR or IVDR), the US (FDA) and India (Medical Devices Rules, 2017) classify it, which rule decides, the route or licence, the documents and an indicative timeline.</p>
+          <p className="text-xs text-lab-text-muted mt-1">Software, AI and combination products, then the UK, Canada, Australia, Japan, China and Switzerland, are coming in later phases.</p>
         </CardContent>
       </Card>
       <div className="flex gap-2 flex-wrap">

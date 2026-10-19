@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { LIBRARY } from '../src/wizard/library'
 import { EU_PACK, mdrHits, ivdrHits } from '../src/wizard/eu'
 import { US_PACK, US_TYPES } from '../src/wizard/us'
+import { IN_PACK } from '../src/wizard/in'
 import { QUESTIONS, visibleQuestions, isAnswered } from '../src/wizard/questions'
 import { US_OPTIONS } from '../src/wizard/us'
 import type { Answers } from '../src/wizard/questions'
@@ -13,9 +14,11 @@ const eu = (a: Answers) => EU_PACK.classify({ ...dev, ...a }).cls
 describe('device library', () => {
   it('every device gets its expected class in the EU and the US, with no unanswered question', () => {
     for (const d of LIBRARY) {
-      const r = { EU: EU_PACK.classify(d.answers), US: US_PACK.classify(d.answers) }
+      const r = { EU: EU_PACK.classify(d.answers), US: US_PACK.classify(d.answers), IN: IN_PACK.classify(d.answers) }
       expect(r.EU.incomplete, `${d.id} EU`).toBeUndefined()
       expect(r.US.incomplete, `${d.id} US`).toBeUndefined()
+      expect(r.IN.incomplete, `${d.id} IN`).toBeUndefined()
+      expect(r.IN.cls, `${d.id} IN`).toBe(d.expect.IN)
       expect(r.EU.cls, d.id).toBe(d.expect.EU)
       expect(r.US.cls, d.id).toBe(d.expect.US)
       const unanswered = visibleQuestions(d.answers, US_OPTIONS).filter((q) => !isAnswered(q, d.answers)).map((q) => q.id)
@@ -23,8 +26,9 @@ describe('device library', () => {
     }
   })
   it('uses fictional names and real regulation numbers', () => {
-    expect(LIBRARY.length).toBeGreaterThanOrEqual(12)
+    expect(LIBRARY.length).toBeGreaterThanOrEqual(23)
     for (const t of US_TYPES) expect(t.cfr).toMatch(/21 CFR|PHS Act/)
+    for (const d of LIBRARY) expect(d.maker).toMatch(/Tessaly|Quillon|Marrowbridge|Halvern/)
   })
 })
 
@@ -53,7 +57,8 @@ describe('MDR Annex VIII rules', () => {
     expect(eu({ ...s, duration: 'short', surg: ['biological'] })).toBe('III')
     expect(eu({ ...s, duration: 'transient', surg: ['heart_cns'] })).toBe('III')
     expect(eu({ active: false, invasive: 'implant', impl: ['teeth'] })).toBe('IIa')
-    expect(eu({ active: false, invasive: 'implant', impl: ['breast_mesh'] })).toBe('III')
+    expect(eu({ active: false, invasive: 'implant', impl: ['breast'] })).toBe('III')
+    expect(eu({ active: false, invasive: 'implant', impl: ['mesh'] })).toBe('III')
     expect(eu({ ...s, duration: 'long', impl: [] })).toBe('IIb')
   })
   it('rules 9, 10, 12, 13: active devices', () => {
@@ -127,8 +132,8 @@ describe('US routes', () => {
 
 import { MISSIONS, scoreMission } from '../src/wizard/missions'
 describe('missions', () => {
-  it('five missions; every answer is one of its options; a perfect run scores 100', () => {
-    expect(MISSIONS).toHaveLength(5)
+  it('every mission: every answer is one of its options; a perfect run scores 100', () => {
+    expect(MISSIONS.length).toBeGreaterThanOrEqual(5)
     for (const m of MISSIONS) {
       const tasks = m.tasks()
       for (const t of tasks) expect(t.options, `${m.id}/${t.id}`).toContain(t.answer)

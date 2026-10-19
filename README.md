@@ -13,6 +13,17 @@ Compare how a health product moves from discovery to approval across 21 regulato
 - 13 product categories: small molecule, biologic, vaccine, cell and gene therapy, pediatric, orphan, generic, biosimilar, medical device, diagnostic (IVD), herbal and traditional medicine, homeopathy and cosmetic
 - A stage-by-stage pathway for each regulator and category, with the key documents for each stage
 - Compare up to four regulators side by side, an illustrative timeline ranking, a regulator directory, a glossary and a search across every pathway
+- **Device classification wizard** (new): describe a device once and see its class under the EU MDR (all 22 Annex VIII rules) or IVDR (rules 1 to 7) and in the US (classification regulation, 510(k), De Novo, PMA, HDE), with the rule that decides, the route, the documents and an indicative timeline
+- A library of 15 fictional devices, from an adhesive strip to a pacemaker and from a urine cup to a donor HIV screen, and 5 scored missions at guided, standard and expert levels
+
+## Phases of the classification wizard
+| Phase | Scope | Status |
+|---|---|---|
+| 0 | Move from Macaly to GitHub Pages | Done |
+| 1 | Engine, EU (MDR and IVDR) and US packs, side-by-side results, 15 devices, 5 missions | Done |
+| 2 | India (Medical Devices Rules 2017), IVD branch in full, companion diagnostics | Planned |
+| 3 | Software and AI, combination products, IMDRF lessons | Planned |
+| 4 | UK, Canada, Australia, Japan, China and Switzerland; certificate | Planned |
 
 ## Run it locally
 ```

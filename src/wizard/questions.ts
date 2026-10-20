@@ -10,7 +10,7 @@ export interface Option { id: string; label: string; help?: string }
 
 export interface Question {
   id: string
-  section: 'Device' | 'Body contact' | 'Active device' | 'Special rules' | 'IVD' | 'United States' | 'India'
+  section: 'Device' | 'Body contact' | 'Active device' | 'Special rules' | 'IVD' | 'Software' | 'Combination' | 'United States' | 'India'
   text: string
   why: string
   term?: { word: string; definition: string; source: string }
@@ -21,6 +21,23 @@ export interface Question {
 
 const isDevice = (a: Answers) => a.kind === 'device'
 const isIvd = (a: Answers) => a.kind === 'ivd'
+const isSw = (a: Answers) => a.kind === 'software'
+const swClinical = (a: Answers) => isSw(a) && a.sw_purpose === 'clinical'
+const isCombo = (a: Answers) => a.kind === 'combination'
+// US: is the software a device at all? Not for administrative or general wellness software
+// (FD&C Act 520(o)(1)(A) and (B)), nor for clinical decision support that meets all four
+// criteria of 520(o)(1)(E).
+export function usSoftwareStatus(a: Answers): 'admin' | 'wellness' | 'cds' | 'device' | undefined {
+  if (!isSw(a)) return undefined
+  if (a.sw_purpose === 'admin') return 'admin'
+  if (a.sw_purpose === 'wellness') return 'wellness'
+  if (a.sw_purpose !== 'clinical' || !a.sw_input || !a.sw_significance || !a.sw_user) return undefined
+  if (a.sw_input === 'medical_info' && a.sw_user === 'hcp' && a.sw_significance !== 'treat_diagnose') {
+    if (a.sw_review === undefined) return undefined
+    return a.sw_review === true ? 'cds' : 'device'
+  }
+  return 'device'
+}
 const needs510k = (a: Answers) => { const t = US_TYPES.find((x) => x.id === a.us_type); return !!t && !t.exempt && (t.cls === 'I' || t.cls === 'II') }
 const has = (a: Answers, q: string, v: string) => Array.isArray(a[q]) && (a[q] as string[]).includes(v)
 
@@ -33,6 +50,8 @@ export const QUESTIONS: Question[] = [
     options: [
       { id: 'device', label: 'Medical device (works on or in the body)' },
       { id: 'ivd', label: 'In vitro diagnostic (tests a specimen taken from the body)' },
+      { id: 'software', label: 'Software on its own (an app, a cloud service, an AI model): software as a medical device' },
+      { id: 'combination', label: 'A combination of a medicine and a device (a drug-coated implant, a prefilled pen)' },
     ],
   },
 
@@ -369,9 +388,122 @@ export const QUESTIONS: Question[] = [
     why: 'Sterile class A IVDs need a notified body for the sterile aspects.',
   },
 
+  // ---------------------------------------------------------------- software
+  {
+    id: 'sw_purpose', section: 'Software', type: 'single', showIf: isSw,
+    text: 'What is the software for?',
+    why: 'Only software with a medical purpose is a device. Administrative software and general wellness software are outside device rules in the EU, the US and India.',
+    term: { word: 'Software as a medical device (SaMD)', definition: 'Software intended for one or more medical purposes that performs them without being part of a hardware medical device.', source: 'IMDRF/SaMD WG/N10' },
+    options: [
+      { id: 'clinical', label: 'A medical purpose: diagnosis, prevention, monitoring, prediction, prognosis or treatment of a disease or condition' },
+      { id: 'wellness', label: 'General wellness: a healthy lifestyle (sleep, fitness, stress), with no disease claim' },
+      { id: 'admin', label: 'Administration: scheduling, billing, stock control, or storing and transferring records without changing them' },
+    ],
+  },
+  {
+    id: 'sw_input', section: 'Software', type: 'single', showIf: swClinical,
+    text: 'What does it work on?',
+    why: 'US: software that analyses a medical image, an IVD signal or a physiological signal fails the first criterion for non-device clinical decision support (FD&C Act 520(o)(1)(E)).',
+    options: [
+      { id: 'image_signal', label: 'Medical images, IVD results as signals, or physiological signals (an ECG trace, a CT scan, a continuous glucose signal)' },
+      { id: 'medical_info', label: 'Medical information: records, laboratory values, guidelines, published literature' },
+    ],
+  },
+  {
+    id: 'sw_significance', section: 'Software', type: 'single', showIf: swClinical,
+    text: 'What does its output do for the clinical decision?',
+    why: 'IMDRF N12 sorts software by the significance of the information it gives: to treat or diagnose, to drive clinical management, or to inform it.',
+    term: { word: 'Significance of the information', definition: 'Treat or diagnose: the output is used to take an immediate or near-term action. Drive clinical management: it guides the next diagnostic or treatment step. Inform clinical management: it gives options or aggregates information, and the decision rests on more.', source: 'IMDRF/SaMD WG/N12 FINAL:2014, section 7' },
+    options: [
+      { id: 'treat_diagnose', label: 'It treats or diagnoses: the output is the diagnosis, or it controls the treatment' },
+      { id: 'drive', label: 'It drives clinical management: it triages, flags or guides the next step' },
+      { id: 'inform', label: 'It informs clinical management: it shows options or information for a person to weigh' },
+    ],
+  },
+  {
+    id: 'sw_situation', section: 'Software', type: 'single', showIf: swClinical,
+    text: 'How serious is the healthcare situation or condition?',
+    why: 'IMDRF N12: critical (life-threatening, needing urgent action), serious (needs timely intervention to avoid long-term harm) or non-serious.',
+    options: [
+      { id: 'critical', label: 'Critical: life-threatening or needing urgent action (sepsis, stroke, pneumothorax)' },
+      { id: 'serious', label: 'Serious: needs timely action to avoid lasting harm (atrial fibrillation, diabetes, most cancers)' },
+      { id: 'non_serious', label: 'Non-serious: not urgent and not lastingly harmful (a minor skin condition, a cold)' },
+    ],
+  },
+  {
+    id: 'sw_impact', section: 'Software', type: 'single', showIf: swClinical,
+    text: 'If its output were wrong and the decision followed it, what is the worst that could happen?',
+    why: 'EU MDR rule 11: software that provides information for diagnostic or therapeutic decisions is class IIa, IIb if a wrong decision could cause a serious deterioration or a surgical intervention, and III if it could cause death or an irreversible deterioration.',
+    options: [
+      { id: 'death', label: 'Death or an irreversible deterioration of health' },
+      { id: 'serious', label: 'A serious deterioration of health, or a surgical intervention' },
+      { id: 'other', label: 'Something less serious' },
+    ],
+  },
+  {
+    id: 'sw_monitor', section: 'Software', type: 'single', showIf: swClinical,
+    text: 'Does it monitor physiological processes?',
+    why: 'EU MDR rule 11: software to monitor physiological processes is class IIa, and IIb for vital physiological parameters whose variations could mean immediate danger.',
+    options: [
+      { id: 'none', label: 'No' },
+      { id: 'physiological', label: 'Yes, physiological processes' },
+      { id: 'vital_danger', label: 'Yes, vital parameters whose variations could mean immediate danger (heart rate in intensive care, breathing)' },
+    ],
+  },
+  {
+    id: 'sw_user', section: 'Software', type: 'single', showIf: swClinical,
+    text: 'Who uses the output?',
+    why: 'US: non-device clinical decision support must be intended for health care professionals. Patient-facing software is reviewed as a device.',
+    options: [
+      { id: 'hcp', label: 'Health care professionals' },
+      { id: 'patient', label: 'Patients or caregivers' },
+    ],
+  },
+  {
+    id: 'sw_review', section: 'Software', type: 'bool', showIf: (a) => swClinical(a) && a.sw_input === 'medical_info' && a.sw_user === 'hcp' && a.sw_significance !== 'treat_diagnose',
+    text: 'Can the professional independently review the basis for each recommendation (the inputs, the logic, the sources), with time to do so, so that they do not rely primarily on it?',
+    why: 'The fourth criterion of FD&C Act 520(o)(1)(E). FDA’s guidance of 6 January 2026 treats decisions that are time-critical as failing this criterion.',
+  },
+  {
+    id: 'sw_learns', section: 'Software', type: 'single', showIf: swClinical,
+    text: 'Is the algorithm locked, or does it change after release (retraining, learning)?',
+    why: 'Planned changes to an AI model need a change-control route agreed in advance: a predetermined change control plan in the US, notified body approval of significant changes in the EU, and an algorithm change protocol in India’s draft guidance.',
+    options: [
+      { id: 'locked', label: 'Locked: the same input always gives the same output until a new version is released' },
+      { id: 'adaptive', label: 'It is retrained or learns after release (an AI or machine-learning model)' },
+    ],
+  },
+
+  // ---------------------------------------------------------------- combination products
+  {
+    id: 'combo_pmoa', section: 'Combination', type: 'single', showIf: isCombo,
+    text: 'Which part delivers the main therapeutic action (the primary mode of action)?',
+    why: 'The primary mode of action decides whether the product is regulated as a device or as a medicine, and so who leads the review.',
+    term: { word: 'Primary mode of action', definition: 'The single mode of action of a combination product that provides its most important therapeutic action, the one expected to make the greatest contribution to its overall therapeutic effect.', source: '21 CFR 3.2(m)' },
+    options: [
+      { id: 'device', label: 'The device: the medicine only supports it (a drug-coated stent, an antibiotic-loaded bone cement)' },
+      { id: 'drug', label: 'The medicine: the device delivers it (a prefilled pen, an inhaler, a drug patch)' },
+    ],
+  },
+  {
+    id: 'combo_form', section: 'Combination', type: 'single', showIf: isCombo,
+    text: 'How are the parts put together?',
+    why: 'The EU treats a single integral product differently from parts sold together or separately; the US defines single-entity, co-packaged and cross-labelled combination products (21 CFR 3.2(e)).',
+    options: [
+      { id: 'single', label: 'One integral product that cannot be separated and is not reusable (the medicine is in or on the device)' },
+      { id: 'copackaged', label: 'Separate parts packed together (a kit)' },
+      { id: 'cross', label: 'Sold separately, but labelled for use only with each other' },
+    ],
+  },
+  {
+    id: 'combo_implant', section: 'Combination', type: 'bool', showIf: (a) => isCombo(a) && a.combo_pmoa === 'device',
+    text: 'Is the device part implanted, or life-supporting or life-sustaining?',
+    why: 'US: a high-risk device-led combination usually needs premarket approval (PMA); lower-risk ones can use 510(k) or De Novo.',
+  },
+
   // ---------------------------------------------------------------- US
   {
-    id: 'us_type', section: 'United States', type: 'single',
+    id: 'us_type', section: 'United States', type: 'single', showIf: (a) => !isCombo(a) && (!isSw(a) || usSoftwareStatus(a) === 'device'),
     text: 'In the US, which generic device type is it? (FDA classifies by device type, not by rules.)',
     why: 'Each device type has a classification regulation in 21 CFR Parts 862 to 892 that sets its class and whether it is exempt from 510(k). A type that has never been classified is class III until FDA classifies it.',
     options: [], // filled from the US pack
@@ -403,7 +535,7 @@ export const QUESTIONS: Question[] = [
 
   // ---------------------------------------------------------------- India
   {
-    id: 'in_activity', section: 'India', type: 'single',
+    id: 'in_activity', section: 'India', type: 'single', showIf: (a) => !isSw(a) || a.sw_purpose === 'clinical',
     text: 'In India, will it be manufactured in India or imported?',
     why: 'The Medical Devices Rules, 2017 use different licences: manufacture of class A and B is licensed by the State Licensing Authority, class C and D by the Central Licensing Authority; every import licence is central.',
     options: [
@@ -412,7 +544,7 @@ export const QUESTIONS: Question[] = [
     ],
   },
   {
-    id: 'in_predicate', section: 'India', type: 'bool',
+    id: 'in_predicate', section: 'India', type: 'bool', showIf: (a) => (!isSw(a) || a.sw_purpose === 'clinical') && !isCombo(a),
     text: 'Is a device of the same kind, with the same intended use, already approved in India (a predicate)?',
     why: 'Without a predicate, a device needs a clinical investigation (MD-22 to MD-23) and permission in Form MD-27; a new IVD needs a clinical performance evaluation (MD-24 to MD-25) and permission in Form MD-29, before the licence.',
   },

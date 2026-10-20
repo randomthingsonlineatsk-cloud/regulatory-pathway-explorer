@@ -6,7 +6,7 @@ export interface LibraryDevice {
   id: string
   name: string
   maker: string
-  group: 'Non-invasive' | 'Invasive' | 'Implant' | 'Active' | 'IVD' | 'Companion diagnostic'
+  group: 'Non-invasive' | 'Invasive' | 'Implant' | 'Active' | 'IVD' | 'Companion diagnostic' | 'Software' | 'Combination'
   purpose: string
   description: string
   answers: Answers
@@ -177,5 +177,47 @@ export const LIBRARY: LibraryDevice[] = [
     description: 'Used to enrol patients in the pivotal Kestrenib trial; the medicine’s label will require a positive result. Kestrenib is a programme in the Clinical Trial Simulator. No test of this type has been approved in India.',
     answers: { kind: 'ivd', in_activity: 'import', in_predicate: false, ivd_d: [], ivd_grouping: 'no', ivd_c: ['companion', 'cancer'], cdx_stage: 'codev', ivd_user: 'lab', ivd_a: 'no', us_type: 'novel', us_risk: 'high', us_hud: false },
     expect: { EU: 'C', US: 'Class III', IN: 'C' },
+  },
+  {
+    id: 'triageview', name: 'TriageView Chest', maker: 'Halvern Digital', group: 'Software',
+    purpose: 'AI software that reads chest X-rays as they arrive and alerts the radiologist to suspected pneumothorax, so those images are read first.',
+    description: 'It does not mark the image or remove cases from the worklist; the radiologist reads every image as usual. The model is locked between releases.',
+    answers: { ...india, kind: 'software', sw_purpose: 'clinical', sw_input: 'image_signal', sw_significance: 'drive', sw_situation: 'critical', sw_impact: 'serious', sw_monitor: 'none', sw_user: 'hcp', sw_learns: 'locked', us_type: 'cadt', us_predicate: true, us_own_change: false },
+    expect: { EU: 'IIb', US: 'Class II', IN: 'C' },
+  },
+  {
+    id: 'heartnote', name: 'HeartNote ECG', maker: 'Quillon Digital', group: 'Software',
+    purpose: 'A smartwatch app for adults that records a single-lead ECG and tells the user whether it shows signs of atrial fibrillation, so they can talk to a doctor.',
+    description: 'Sold over the counter. It does not diagnose and is not for people already diagnosed with arrhythmia.',
+    answers: { ...india, kind: 'software', sw_purpose: 'clinical', sw_input: 'image_signal', sw_significance: 'inform', sw_situation: 'serious', sw_impact: 'other', sw_monitor: 'none', sw_user: 'patient', sw_learns: 'locked', us_type: 'otc_ecg', us_predicate: true, us_own_change: false },
+    expect: { EU: 'IIa', US: 'Class II', IN: 'A' },
+  },
+  {
+    id: 'rxcheck', name: 'RxCheck Interactions', maker: 'Marrowbridge Digital', group: 'Software',
+    purpose: 'Software for prescribers that checks a new prescription against the patient’s medicines and shows interactions, with the guideline or label text behind each alert.',
+    description: 'The prescriber sees the source for every alert and decides; prescribing is not time-critical.',
+    answers: { ...india, kind: 'software', sw_purpose: 'clinical', sw_input: 'medical_info', sw_significance: 'inform', sw_situation: 'serious', sw_impact: 'other', sw_monitor: 'none', sw_user: 'hcp', sw_review: true, sw_learns: 'locked' },
+    expect: { EU: 'IIa', US: 'Not a device (CDS)', IN: 'A' },
+  },
+  {
+    id: 'sepsiswatch', name: 'SepsisWatch', maker: 'Tessaly Digital', group: 'Software',
+    purpose: 'A machine-learning model that scores hospital patients’ sepsis risk every hour from laboratory values and records, and alerts the ward team.',
+    description: 'Sepsis needs treatment within hours, so staff act on the alert without time to check the model’s reasoning. The model is retrained every quarter on new hospital data.',
+    answers: { ...india, kind: 'software', sw_purpose: 'clinical', sw_input: 'medical_info', sw_significance: 'drive', sw_situation: 'critical', sw_impact: 'death', sw_monitor: 'none', sw_user: 'hcp', sw_review: false, sw_learns: 'adaptive', us_type: 'novel', us_risk: 'low_moderate' },
+    expect: { EU: 'III', US: 'Class I or II (by De Novo)', IN: 'C' },
+  },
+  {
+    id: 'velostent', name: 'VeloStent DES', maker: 'Halvern Medtech', group: 'Combination',
+    purpose: 'A coronary stent coated with a fictional antiproliferative drug that limits re-narrowing of the artery.',
+    description: 'The stent holds the artery open; the drug only supports that action. Implanted permanently.',
+    answers: { kind: 'combination', in_activity: 'import', combo_pmoa: 'device', combo_form: 'single', combo_implant: true },
+    expect: { EU: 'III', US: 'Class III', IN: 'D' },
+  },
+  {
+    id: 'dorva-pen', name: 'Dorvaglutide Pen', maker: 'Tessaly Pharma', group: 'Combination',
+    purpose: 'A prefilled, single-patient pen that delivers a fictional weekly peptide for type 2 diabetes.',
+    description: 'The pen is filled at the factory and thrown away when empty; it cannot be refilled. The medicine does the work; the pen delivers it.',
+    answers: { kind: 'combination', in_activity: 'import', combo_pmoa: 'drug', combo_form: 'single' },
+    expect: { EU: 'Medicinal product', US: 'Drug-led combination', IN: 'New drug' },
   },
 ]

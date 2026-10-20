@@ -9,6 +9,7 @@ import { LIBRARY, type LibraryDevice } from './library'
 import { MISSIONS, scoreMission, usRouteKey, type Level, type Task } from './missions'
 import { loadAttempts, saveAttempt, loadProfiles, saveProfile, deleteProfile } from './store'
 import type { RegionResult } from './types'
+import { LESSONS } from './learn'
 
 const REGION_COLOR: Record<string, string> = { EU: 'hsl(258 70% 65%)', US: 'hsl(208 85% 58%)', IN: 'hsl(30 80% 55%)' }
 const chip = (on: boolean, color = 'hsl(var(--lab-text))') => (on ? { borderColor: color, color } : { borderColor: 'hsl(var(--lab-line))', color: 'hsl(var(--lab-text-muted))' })
@@ -26,7 +27,7 @@ function ResultCard({ r, hidden }: { r: RegionResult; hidden?: boolean }) {
     <Card className="border-2 bg-lab-panel gap-3" style={{ borderColor: color }}>
       <CardHeader className="pb-0">
         <CardDescription className="font-mono text-[11px] text-lab-text-muted">{pack.name} · {r.regulation}</CardDescription>
-        <CardTitle className="font-mono text-lg" style={{ color }}>{hidden ? 'Class hidden until you check' : r.incomplete ? 'Not enough answers yet' : `Class ${r.cls.replace(/^Class /, '')}`}</CardTitle>
+        <CardTitle className="font-mono text-lg" style={{ color }}>{hidden ? 'Class hidden until you check' : r.incomplete ? 'Not enough answers yet' : /^Class |^[IVX]+[a-z]*$|^[ABCD]$/.test(r.cls) ? `Class ${r.cls.replace(/^Class /, '')}` : r.cls}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {r.incomplete && <p className="text-lab-text-muted">{r.incomplete}</p>}
@@ -143,8 +144,9 @@ function Wizard({ answers, setAnswers, title }: { answers: Answers; setAnswers: 
     for (const r of results) rows.push([r.region, r.regulation, r.cls, r.decisive?.rule ?? '', r.route, r.reviewer, r.timeline.label, (r.facts ?? []).map((f) => `${f.label}: ${f.value}`).join('; ')])
     download(`classification-${(name || title || 'device').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv`, rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n') + '\nTraining use only. Not a regulatory determination.\n')
   }
-  const euOpts = answers.kind === 'ivd' ? IVDR_CLASSES : MDR_CLASSES
-  const usRoutes = ['Exempt: register and list', 'Traditional 510(k)', 'Special 510(k)', 'De Novo', 'Premarket approval (PMA)', 'Humanitarian Device Exemption', 'Biologics License Application (CBER)']
+  const euOpts = answers.kind === 'ivd' ? IVDR_CLASSES : answers.kind === 'software' ? ['Not a device', 'I', 'IIa', 'IIb', 'III'] : answers.kind === 'combination' ? ['III', 'Medicinal product'] : MDR_CLASSES
+  const inOpts = answers.kind === 'software' ? ['Not a device', ...IN_CLASSES] : answers.kind === 'combination' ? ['D', 'New drug'] : IN_CLASSES
+  const usRoutes = ['Not a device', 'Exempt: register and list', 'Traditional 510(k)', 'Special 510(k)', 'De Novo', 'Premarket approval (PMA)', 'Humanitarian Device Exemption', 'Biologics License Application (CBER)', 'NDA or BLA (CDER lead)']
   const eu = results.find((r) => r.region === 'EU')!, us = results.find((r) => r.region === 'US')!, ind = results.find((r) => r.region === 'IN')!
 
   return (
@@ -166,7 +168,7 @@ function Wizard({ answers, setAnswers, title }: { answers: Answers; setAnswers: 
             <p className="text-sm text-lab-text">Before you see the answer: what is the EU class, the US route and the India class?</p>
             <div className="flex flex-wrap gap-1.5">{euOpts.map((c) => <Button key={c} size="sm" variant="outline" className="border-2 font-mono h-7" style={chip(guess.EU === c, REGION_COLOR.EU)} onClick={() => setGuess({ ...guess, EU: c })}>EU {c}</Button>)}</div>
             <div className="flex flex-wrap gap-1.5">{usRoutes.map((c) => <Button key={c} size="sm" variant="outline" className="border-2 font-mono h-7 text-[11px]" style={chip(guess.US === c, REGION_COLOR.US)} onClick={() => setGuess({ ...guess, US: c })}>{c}</Button>)}</div>
-            <div className="flex flex-wrap gap-1.5">{IN_CLASSES.map((c) => <Button key={c} size="sm" variant="outline" className="border-2 font-mono h-7" style={chip(guess.IN === c, REGION_COLOR.IN)} onClick={() => setGuess({ ...guess, IN: c })}>India {c}</Button>)}</div>
+            <div className="flex flex-wrap gap-1.5">{inOpts.map((c) => <Button key={c} size="sm" variant="outline" className="border-2 font-mono h-7" style={chip(guess.IN === c, REGION_COLOR.IN)} onClick={() => setGuess({ ...guess, IN: c })}>India {c}</Button>)}</div>
             <Button className="font-mono" disabled={!guess.EU || !guess.US || !guess.IN} onClick={() => setChecked(true)}>Check my answer</Button>
           </CardContent>
         </Card>
@@ -329,9 +331,40 @@ function Missions() {
   )
 }
 
+// ---------------------------------------------------------------------------------- learn
+function Learn() {
+  const [open, setOpen] = useState<string | null>(LESSONS[0].id)
+  const [picks, setPicks] = useState<Record<string, string>>({})
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-lab-text-muted">The IMDRF ideas behind most of the region packs. Each lesson ends with one check.</p>
+      {LESSONS.map((l, i) => {
+        const pick = picks[l.id]
+        return (
+          <Card key={l.id} className="bg-lab-panel border-lab-line gap-2 py-4">
+            <CardHeader className="pb-0">
+              <button className="text-left" onClick={() => setOpen(open === l.id ? null : l.id)}><CardTitle className="font-mono text-sm text-lab-text">{i + 1}. {l.title}{pick === l.check.answer && <span className="text-lab-cdsco font-normal"> · ✓</span>}</CardTitle></button>
+            </CardHeader>
+            {open === l.id && (
+              <CardContent className="space-y-2">
+                {l.body.map((b, k) => <p key={k} className="text-sm text-lab-text">{b}</p>)}
+                <p className="text-xs font-mono text-lab-text-muted">Source: {l.source}</p>
+                <p className="text-sm text-lab-text pt-1">{l.check.prompt}</p>
+                {l.check.options.map((o) => <Button key={o} variant="outline" className="w-full h-auto justify-start text-left border-2 whitespace-normal py-2" style={chip(pick === o, pick === undefined ? undefined : o === l.check.answer ? 'hsl(var(--lab-cdsco))' : 'hsl(var(--lab-red))')} onClick={() => setPicks({ ...picks, [l.id]: o })}>{o}</Button>)}
+                {pick && <p className="text-xs text-lab-text-muted">{pick === l.check.answer ? '✓ ' : '✗ '}{l.check.explain}</p>}
+                {pick && i < LESSONS.length - 1 && <Button size="sm" className="font-mono" onClick={() => setOpen(LESSONS[i + 1].id)}>Next lesson</Button>}
+              </CardContent>
+            )}
+          </Card>
+        )
+      })}
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------------- view
 export default function ClassifyView({ startKind }: { startKind?: 'device' | 'ivd' }) {
-  const [tab, setTab] = useState<'wizard' | 'library' | 'missions'>('wizard')
+  const [tab, setTab] = useState<'wizard' | 'library' | 'missions' | 'learn'>('wizard')
   const [answers, setAnswers] = useState<Answers>(startKind ? { kind: startKind } : {})
   const [title, setTitle] = useState('')
   const [key, setKey] = useState(0)
@@ -339,16 +372,17 @@ export default function ClassifyView({ startKind }: { startKind?: 'device' | 'iv
     <div className="space-y-4">
       <Card className="bg-lab-panel border-lab-line gap-2 py-4">
         <CardContent>
-          <p className="text-sm text-lab-text">Describe a device once and see how the EU (MDR or IVDR), the US (FDA) and India (Medical Devices Rules, 2017) classify it, which rule decides, the route or licence, the documents and an indicative timeline.</p>
-          <p className="text-xs text-lab-text-muted mt-1">Software, AI and combination products, then the UK, Canada, Australia, Japan, China and Switzerland, are coming in later phases.</p>
+          <p className="text-sm text-lab-text">Describe a device, an IVD, software or a medicine-device combination once and see how the EU (MDR or IVDR), the US (FDA) and India (Medical Devices Rules, 2017) classify it, which rule decides, the route or licence, the documents and an indicative timeline.</p>
+          <p className="text-xs text-lab-text-muted mt-1">The UK, Canada, Australia, Japan, China and Switzerland are coming in a later phase.</p>
         </CardContent>
       </Card>
       <div className="flex gap-2 flex-wrap">
-        {(['wizard', 'library', 'missions'] as const).map((t) => <Button key={t} variant="outline" size="sm" className="border-2 font-mono capitalize" style={chip(tab === t)} onClick={() => setTab(t)}>{t === 'library' ? 'Device library' : t}</Button>)}
+        {(['wizard', 'library', 'missions', 'learn'] as const).map((t) => <Button key={t} variant="outline" size="sm" className="border-2 font-mono capitalize" style={chip(tab === t)} onClick={() => setTab(t)}>{t === 'library' ? 'Device library' : t === 'learn' ? 'Learn (IMDRF)' : t}</Button>)}
       </div>
       {tab === 'wizard' && <Wizard key={key} answers={answers} setAnswers={setAnswers} title={title} />}
       {tab === 'library' && <Library onOpen={(d) => { setAnswers(d.answers); setTitle(d.name); setKey((k) => k + 1); setTab('wizard') }} />}
       {tab === 'missions' && <Missions />}
+      {tab === 'learn' && <Learn />}
     </div>
   )
 }

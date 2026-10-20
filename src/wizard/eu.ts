@@ -4,6 +4,7 @@
 // classes are as in the regulations.
 import type { Answers } from './questions'
 import type { RegionPack, RegionResult, RuleHit, RouteStep } from './types'
+import { n12Category, N12_TEXT, notDevice, changeControl } from './sw'
 
 const MDR_ORDER = ['I', 'IIa', 'IIb', 'III']
 const IVDR_ORDER = ['A', 'B', 'C', 'D']
@@ -223,8 +224,10 @@ function ivdrRoute(cls: string, a: Answers): { route: string; reviewer: string; 
 }
 
 export const EU_PACK: RegionPack = {
-  id: 'EU', name: 'European Union', regulator: 'EMA', version: '1.1.0', asOf: '2026-10-20',
+  id: 'EU', name: 'European Union', regulator: 'EMA', version: '1.2.0', asOf: '2026-10-20',
   classify(a) {
+    if (a.kind === 'software') return euSoftware(a)
+    if (a.kind === 'combination') return euCombination(a)
     if (a.kind === 'ivd') {
       const { hits, missing } = ivdrHits(a)
       if (missing) return { region: 'EU', regulation: 'IVDR (EU) 2017/746', cls: '?', hits, route: '', reviewer: '', steps: [], documents: [], timeline: { label: '', source: '' }, notes: [], incomplete: missing }
@@ -246,4 +249,50 @@ export const EU_PACK: RegionPack = {
     if (hits.length > 1) notes.unshift(`${hits.length} rules apply; the strictest rule sets the class (MDR Annex VIII, section 3.5).`)
     return { region: 'EU', regulation: 'MDR (EU) 2017/745, Annex VIII', cls, hits, decisive, ...r, notes }
   },
+}
+
+// Software: MDR rule 11 (Annex VIII, 6.3), read with MDCG 2019-11 on qualification.
+function euSoftware(a: Answers): RegionResult {
+  if (a.sw_purpose === 'wellness') return notDevice('EU', 'MDR Article 2(1); MDCG 2019-11', 'Not a device', 'Software for general wellness or lifestyle, with no medical purpose, is not a medical device.')
+  if (a.sw_purpose === 'admin') return notDevice('EU', 'MDR Article 2(1); MDCG 2019-11', 'Not a device', 'Software that only stores, archives, communicates or searches, or serves administration, is not a medical device.')
+  if (a.sw_purpose !== 'clinical' || !a.sw_impact || !a.sw_monitor) return { region: 'EU', regulation: 'MDR (EU) 2017/745', cls: '?', hits: [], route: '', reviewer: '', steps: [], documents: [], timeline: { label: '', source: '' }, notes: [], incomplete: 'Answer the software questions.' }
+  const hits: RuleHit[] = []
+  const add = (cls: string, text: string) => hits.push({ rule: 'Rule 11', cls, text })
+  if (a.sw_impact === 'death') add('III', 'Software providing information for diagnostic or therapeutic decisions, where those decisions could cause death or an irreversible deterioration of health, is class III.')
+  else if (a.sw_impact === 'serious') add('IIb', 'Where those decisions could cause a serious deterioration of health or a surgical intervention, the software is class IIb.')
+  else add('IIa', 'Software providing information used to take diagnostic or therapeutic decisions is class IIa.')
+  if (a.sw_monitor === 'vital_danger') add('IIb', 'Software monitoring vital physiological parameters whose variations could mean immediate danger is class IIb.')
+  if (a.sw_monitor === 'physiological') add('IIa', 'Software intended to monitor physiological processes is class IIa.')
+  const decisive = highest(hits, MDR_ORDER)!
+  const r = mdrRoute(decisive.cls, a)
+  const cat = n12Category(a)
+  return { region: 'EU', regulation: 'MDR (EU) 2017/745, Annex VIII, rule 11', cls: decisive.cls, hits, decisive, ...r, documents: [...r.documents, 'Software lifecycle (EN 62304), usability (EN 62366-1) and cybersecurity (MDCG 2019-16) documentation'], facts: [...(cat ? [{ label: 'IMDRF N12', value: `${N12_TEXT[cat]} A teaching aid, not a legal class.` }] : []), ...changeControl('EU', a)], notes: hits.length > 1 ? [`${hits.length} parts of rule 11 apply; the highest class applies.`, ...r.notes] : r.notes }
+}
+
+// Combination products: MDR rule 14 for device-led products with an ancillary medicine, and
+// MDR Article 117 (Directive 2001/83/EC, Annex I, 3.2(12)) for integral medicine-led products.
+function euCombination(a: Answers): RegionResult {
+  const base = { region: 'EU' as const, hits: [] as RuleHit[], route: '', reviewer: '', steps: [], documents: [], timeline: { label: '', source: '' }, notes: [] }
+  if (!a.combo_pmoa || !a.combo_form) return { ...base, regulation: 'MDR (EU) 2017/745', cls: '?', incomplete: 'Answer the combination questions.' }
+  if (a.combo_pmoa === 'device') {
+    const hit = { rule: 'Rule 14', cls: 'III', text: 'Devices incorporating, as an integral part, a substance that would be a medicinal product on its own, with an action ancillary to the device, are class III.' }
+    const r = mdrRoute('III', { ...a, invasive: a.combo_implant ? 'implant' : 'non' })
+    return { ...base, regulation: 'MDR (EU) 2017/745, Annex VIII, rule 14', cls: 'III', hits: [hit], decisive: hit, ...r,
+      reviewer: 'Notified body, consulting a medicines authority on the substance',
+      steps: [...r.steps.slice(0, -1), { step: 'Consultation on the ancillary medicinal substance', detail: 'The notified body asks a national medicines authority, or the EMA, for an opinion on the substance’s quality, safety and benefit-risk; the authority has 210 days (MDR Annex IX section 5.2).' }, r.steps[r.steps.length - 1]],
+      timeline: { label: 'No legal clock for the notified body; the medicines authority’s opinion takes up to 210 days. Indicative only.', source: 'MDR Annex IX section 5.2' },
+      facts: [{ label: 'Lead', value: 'Notified body under the MDR' }, { label: 'Second review', value: 'Medicines authority opinion on the ancillary substance' }] }
+  }
+  const hit = { rule: 'Directive 2001/83/EC', cls: 'Medicinal product', text: 'A product whose principal action is the medicine’s is regulated as a medicinal product; the device part must still meet the MDR’s general safety and performance requirements.' }
+  if (a.combo_form === 'single') return { ...base, regulation: 'Directive 2001/83/EC and Regulation (EC) 726/2004; MDR Article 117', cls: 'Medicinal product', hits: [hit], decisive: hit,
+    route: 'Marketing authorisation for the medicine, with a notified body opinion on the integral device part', reviewer: 'EMA (centralised procedure) or national competent authorities; a notified body for the device part',
+    steps: [{ step: 'Notified body opinion on the device part', detail: 'For a single integral product, the marketing authorisation application includes a notified body’s opinion that the device part meets the MDR’s general safety and performance requirements (MDR Article 117, amending Annex I of Directive 2001/83/EC, section 3.2(12)).' }, { step: 'Marketing authorisation application', detail: 'Module 3 describes the device part; the medicines authority assesses the whole product.' }],
+    documents: ['Marketing authorisation dossier (CTD)', 'Notified body opinion on the device part (Article 117)', 'Device part description, usability and human factors data in Module 3'],
+    timeline: { label: 'Centralised procedure: 210 days of assessment, plus clock stops and the Commission decision. Indicative only.', source: 'Regulation (EC) 726/2004' },
+    facts: [{ label: 'Lead', value: 'Medicines authority' }, { label: 'Second review', value: 'Notified body opinion on the device part (Article 117)' }] }
+  return { ...base, regulation: 'Directive 2001/83/EC; MDR (EU) 2017/745', cls: 'Medicinal product', hits: [hit], decisive: hit,
+    route: 'Marketing authorisation for the medicine; the device is CE-marked on its own under the MDR', reviewer: 'Medicines authority for the medicine; the device in its own MDR class',
+    steps: [{ step: 'CE marking of the device', detail: 'The device is classified under MDR Annex VIII on its own, as for any device, and certified in that class.' }, { step: 'Marketing authorisation application', detail: 'The device is referred to in the product information.' }],
+    documents: ['Marketing authorisation dossier (CTD)', 'Device CE certificate or declaration of conformity'], timeline: { label: 'Medicine and device on separate tracks. Indicative only.', source: 'Directive 2001/83/EC; MDR' },
+    facts: [{ label: 'Lead', value: 'Medicines authority' }, { label: 'Second review', value: 'Separate MDR conformity assessment of the device' }] }
 }

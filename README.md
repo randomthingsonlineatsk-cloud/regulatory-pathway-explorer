@@ -16,7 +16,10 @@ Compare how a health product moves from discovery to approval across 21 regulato
 - **Device classification wizard** (new): describe a device once and see its class under the EU MDR (all 22 Annex VIII rules) or IVDR (rules 1 to 7) and in the US (classification regulation, 510(k), De Novo, PMA, HDE), with the rule that decides, the route, the documents and an indicative timeline
 - **India** (Medical Devices Rules, 2017): classes A to D under the First Schedule (Part I for devices, Part II for IVDs), and the licence each class needs: registration for class A non-sterile, non-measuring devices; MD-3 to MD-5 from the State Licensing Authority for class A and B manufacture; MD-7 to MD-9 from the Central Licensing Authority for class C and D; MD-14 to MD-15 for imports; and, with no predicate, MD-22 to MD-23 and MD-26 to MD-27 (devices) or MD-24 to MD-25 and MD-28 to MD-29 (new IVDs), with the time limits in the Rules
 - **IVD branch**: near-patient and self-tests, CLIA categories in the US (waived, moderate or high complexity), and **companion diagnostics** linked to a fictional medicine (Kestrenib, from the Clinical Trial Simulator): the EU medicines authority consultation, FDA's contemporaneous approval, and India's new-IVD route
-- A library of 23 fictional devices, from an adhesive strip to a pacemaker and from a urine cup to a companion diagnostic, and 9 scored missions at guided, standard and expert levels
+- **Software and AI**: is it a device at all (wellness, administration, and the four US clinical decision support criteria as read in FDA's January 2026 guidance), then EU rule 11, the US device type, and India's class under CDSCO's draft software guidance (October 2025). The IMDRF N12 category is shown as a teaching aid, and AI that learns gets each region's change-control route: the US predetermined change control plan, EU notified body approval of significant changes, India's draft algorithm change protocol, and the EU AI Act as a Watch item
+- **Combination products**: the primary mode of action decides the lead (EU rule 14 with a medicines authority opinion, or a medicine with an Article 117 notified body opinion; 21 CFR Part 3 with CDRH or CDER leading; India class D or a new drug)
+- **Learn**: five short IMDRF lessons (GHTF classification, essential principles, MDSAP, N12, N81), each with a check question
+- A library of 29 fictional devices, from an adhesive strip to a pacemaker, a companion diagnostic, four software products and two combinations, and 13 scored missions at guided, standard and expert levels
 
 ## Phases of the classification wizard
 | Phase | Scope | Status |
@@ -24,7 +27,7 @@ Compare how a health product moves from discovery to approval across 21 regulato
 | 0 | Move from Macaly to GitHub Pages | Done |
 | 1 | Engine, EU (MDR and IVDR) and US packs, side-by-side results, 15 devices, 5 missions | Done |
 | 2 | India (Medical Devices Rules 2017), IVD branch in full with CLIA, companion diagnostics, 8 more devices, 4 missions | Done |
-| 3 | Software and AI, combination products, IMDRF lessons | Planned |
+| 3 | Software and AI, combination products, IMDRF lessons, 6 devices, 4 missions | Done |
 | 4 | UK, Canada, Australia, Japan, China and Switzerland; certificate | Planned |
 
 ## Run it locally

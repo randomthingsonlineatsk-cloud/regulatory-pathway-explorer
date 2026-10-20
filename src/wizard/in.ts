@@ -7,6 +7,7 @@
 // a listed device.
 import type { Answers } from './questions'
 import type { RegionPack, RegionResult, RuleHit, RouteStep } from './types'
+import { n12Category, N12_TEXT, notDevice, changeControl } from './sw'
 
 const ORDER = ['A', 'B', 'C', 'D']
 const pick = (a: Answers, q: string): string[] => (Array.isArray(a[q]) ? (a[q] as string[]) : [])
@@ -201,8 +202,10 @@ function result(partial: Partial<RegionResult> & { cls: string; hits: RuleHit[] 
 }
 
 export const IN_PACK: RegionPack = {
-  id: 'IN', name: 'India', regulator: 'CDSCO', version: '1.0.0', asOf: '2026-10-20',
+  id: 'IN', name: 'India', regulator: 'CDSCO', version: '1.1.0', asOf: '2026-10-20',
   classify(a) {
+    if (a.kind === 'software') return inSoftware(a)
+    if (a.kind === 'combination') return inCombination(a)
     const { hits, missing } = a.kind === 'ivd' ? inIvdHits(a) : inDeviceHits(a)
     const regulation = `Medical Devices Rules, 2017, ${a.kind === 'ivd' ? P2 : P1}`
     if (missing) return result({ cls: '?', hits, regulation, incomplete: missing })
@@ -213,4 +216,37 @@ export const IN_PACK: RegionPack = {
     if (hits.length > 1) notes.unshift(`${hits.length} rules apply; the higher class applies (First Schedule, basic principles).`)
     return result({ cls: decisive.cls, hits, decisive, regulation, ...r, notes })
   },
+}
+
+// Software: CDSCO's draft guidance on medical device software (21 October 2025) classes
+// standalone software by the importance of its output and the seriousness of the situation, as
+// IMDRF N12 does. This app applies it as the N12 matrix: category IV to class D, III to C, II to
+// B and I to A. Still a draft: until it is final, standalone software is classed under the First
+// Schedule by its intended purpose, and CDSCO's lists by product prevail.
+const N12_TO_IN: Record<string, string> = { IV: 'D', III: 'C', II: 'B', I: 'A' }
+function inSoftware(a: Answers): RegionResult {
+  if (a.sw_purpose === 'wellness' || a.sw_purpose === 'admin') return notDevice('IN', 'Medical Devices Rules, 2017, rule 2', 'Not a device', a.sw_purpose === 'wellness' ? 'Software for general wellness, with no medical purpose, is not a medical device.' : 'Administrative and non-clinical software (billing, appointments) is not a medical device; CDSCO’s draft software guidance excludes it.')
+  const cat = n12Category(a)
+  if (!cat) return result({ cls: '?', hits: [], incomplete: 'Answer the software questions.' })
+  const hit = { rule: 'CDSCO draft guidance on medical device software (2025), IMDRF N12 approach', cls: N12_TO_IN[cat], text: `Standalone software is classed by the significance of its output and the seriousness of the situation: IMDRF N12 category ${cat} is class ${N12_TO_IN[cat]} here.` }
+  const regulation = 'Medical Devices Rules, 2017; CDSCO draft guidance on medical device software'
+  if (!a.in_activity || a.in_predicate === undefined) return result({ cls: hit.cls, hits: [hit], decisive: hit, regulation, incomplete: 'Answer the India questions (manufacture or import, and whether there is a predicate) to see the licence.' })
+  const r = licence(hit.cls, a)
+  return result({ cls: hit.cls, hits: [hit], decisive: hit, regulation, ...r, documents: [...r.documents, 'Software lifecycle and cybersecurity documentation (IEC 62304, IEC 81001-5-1), as the draft guidance expects'], facts: [...r.facts, { label: 'IMDRF N12', value: `${N12_TEXT[cat]} A teaching aid, not a legal class.` }, ...changeControl('IN', a)], notes: ['Draft guidance (October 2025): until it is final, standalone software is classed under the First Schedule by its intended purpose, and CDSCO’s published lists by product prevail.', ...r.notes] })
+}
+
+function inCombination(a: Answers): RegionResult {
+  if (!a.combo_pmoa || !a.combo_form) return result({ cls: '?', hits: [], incomplete: 'Answer the combination questions.' })
+  if (a.combo_pmoa === 'device') {
+    const hit = { rule: `${P1}: devices incorporating a medicinal product`, cls: 'D', text: 'Devices incorporating a substance that would be a drug on its own, with an action ancillary to the device, are class D.' }
+    if (!a.in_activity) return result({ cls: 'D', hits: [hit], decisive: hit, incomplete: 'Say whether it is manufactured in India or imported.' })
+    const r = licence('D', { ...a, in_predicate: true })
+    return result({ cls: 'D', hits: [hit], decisive: hit, regulation: `Medical Devices Rules, 2017, ${P1}`, ...r, facts: [...r.facts, { label: 'Second review', value: 'CDSCO assesses the drug component within the device application; borderline products are decided case by case.' }] })
+  }
+  const hit = { rule: 'New Drugs and Clinical Trials Rules, 2019', cls: 'New drug', text: 'A product whose principal action is the drug’s is regulated as a drug: a new drug needs permission under the NDCT Rules, 2019, with the delivery device assessed in that application.' }
+  return result({ cls: 'New drug', hits: [hit], decisive: hit, regulation: 'New Drugs and Clinical Trials Rules, 2019',
+    route: 'Permission to import or manufacture a new drug (NDCT Rules, 2019), covering the delivery device', reviewer: 'Central Licensing Authority (CDSCO), with a Subject Expert Committee',
+    steps: [{ step: 'Clinical trial permission if a local trial is needed', detail: 'Form CT-04; decision within 90 working days (Rules 21 and 22).' }, { step: 'New drug application', detail: 'The delivery device’s design, performance and usability are part of the application; CDSCO decides borderline products case by case.' }],
+    documents: ['New drug application dossier (CTD format)', 'Device part: design, performance and usability data'], timeline: { label: 'Set by the NDCT Rules for new drug permissions, after Subject Expert Committee review. Indicative only.', source: 'New Drugs and Clinical Trials Rules, 2019' },
+    facts: [{ label: 'Lead', value: 'CDSCO (drugs)' }, { label: 'Second review', value: 'Device part assessed within the drug application' }] })
 }

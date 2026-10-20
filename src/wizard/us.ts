@@ -1,7 +1,8 @@
 // US pack: FD&C Act section 513 classes, the classification regulations in 21 CFR Parts 862 to
 // 892, and the premarket routes (exempt, 510(k), De Novo, PMA, HDE, and BLA for blood donor
 // screening tests regulated by CBER). Review goals are the MDUFA V performance goals.
-import type { Answers, Option } from './questions'
+import { usSoftwareStatus, type Answers, type Option } from './questions'
+import { n12Category, N12_TEXT, notDevice, changeControl } from './sw'
 import type { RegionPack, RegionResult, RouteStep } from './types'
 
 export interface UsType {
@@ -39,6 +40,8 @@ export const US_TYPES: UsType[] = [
   { id: 'ventilator', name: 'Continuous ventilator', cfr: '21 CFR 868.5895', panel: 'Anesthesiology', cls: 'II', exempt: false },
   { id: 'ngs_tumor', name: 'Next generation sequencing based tumor profiling test', cfr: '21 CFR 866.6080', panel: 'Immunology and Microbiology', cls: 'II', exempt: false, note: 'Class II with special controls: the mutations reported, analytical validation and the clinical evidence for the panel. A claim to select patients for a specific medicine makes the test a companion diagnostic, which usually needs PMA.' },
   { id: 'blood_grouping', name: 'Blood grouping reagent (anti-A, anti-B, anti-D)', cfr: '21 CFR 660.20 (PHS Act section 351)', panel: 'CBER (biologics)', cls: 'BLA', exempt: false, note: 'Blood grouping reagents are licensed biological products, reviewed by CBER.' },
+  { id: 'cadt', name: 'Radiological computer aided triage and notification software', cfr: '21 CFR 892.2080', panel: 'Radiology', cls: 'II', exempt: false, note: 'Special controls; the software flags time-sensitive images for review but does not mark them or remove cases from the reading queue.' },
+  { id: 'otc_ecg', name: 'Electrocardiograph software for over-the-counter use', cfr: '21 CFR 870.2345', panel: 'Cardiovascular', cls: 'II', exempt: false, note: 'Special controls include clinical performance testing of the rhythm algorithm and human factors testing; the software is not intended to give a diagnosis.' },
   { id: 'hiv_donor', name: 'HIV screening assay for blood and plasma donors', cfr: 'PHS Act section 351; donor testing under 21 CFR 610.40', panel: 'CBER (biologics)', cls: 'BLA', exempt: false, note: 'Donor screening tests used by blood establishments are licensed as biological products by CBER, not cleared as devices by CDRH.' },
 ]
 
@@ -75,8 +78,21 @@ function cdx(a: Answers, r: RegionResult): RegionResult {
 }
 
 export const US_PACK: RegionPack = {
-  id: 'US', name: 'United States', regulator: 'FDA', version: '1.1.0', asOf: '2026-10-20',
+  id: 'US', name: 'United States', regulator: 'FDA', version: '1.2.0', asOf: '2026-10-20',
   classify(a: Answers): RegionResult {
+    if (a.kind === 'combination') return usCombination(a)
+    if (a.kind === 'software') {
+      const st = usSoftwareStatus(a)
+      if (st === 'admin') return notDevice('US', 'FD&C Act section 520(o)(1)(A)', 'Not a device', 'Software for administrative support of a health care facility is excluded from the device definition.')
+      if (st === 'wellness') return notDevice('US', 'FD&C Act section 520(o)(1)(B)', 'Not a device', 'Software for maintaining or encouraging a healthy lifestyle, unrelated to a disease or condition, is excluded from the device definition (FDA general wellness guidance).')
+      const cat = n12Category(a)
+      const extra = [...(cat ? [{ label: 'IMDRF N12', value: `${N12_TEXT[cat]} A teaching aid, not a legal class.` }] : []), ...changeControl('US', a)]
+      if (st === 'cds') return { ...notDevice('US', 'FD&C Act section 520(o)(1)(E)', 'Not a device (CDS)', 'Clinical decision support that meets all four criteria is not a device: it does not analyse images or signals, it shows medical information, it supports a health care professional’s decision, and the professional can independently review the basis. FDA guidance of 6 January 2026.'), facts: extra }
+      if (st === undefined) return result({ cls: '?', hits: [], route: '', reviewer: '', steps: [], documents: [], timeline: { label: '', source: '' }, incomplete: 'Answer the software questions.' })
+      const r = classifyUs(a)
+      const why = a.sw_input === 'image_signal' ? 'it analyses images or signals (criterion 1)' : a.sw_user === 'patient' ? 'it is for patients, not health care professionals (criterion 3)' : a.sw_significance === 'treat_diagnose' ? 'it diagnoses or treats rather than supporting a professional’s decision (criterion 3)' : 'the professional cannot independently review its basis in time (criterion 4)'
+      return { ...r, facts: [...(r.facts ?? []), ...extra], notes: [`A device: not exempt as clinical decision support because ${why}.`, ...r.notes] }
+    }
     const r = classifyUs(a)
     const c = cliaFact(a)
     return cdx(a, c && !r.incomplete ? { ...r, facts: [...(r.facts ?? []), c] } : r)
@@ -160,4 +176,27 @@ function classifyUs(a: Answers): RegionResult {
       notes,
     })
   }
+}
+
+// Combination products: 21 CFR Part 3 (primary mode of action) and Part 4 (cGMP).
+function usCombination(a: Answers): RegionResult {
+  if (!a.combo_pmoa || !a.combo_form || (a.combo_pmoa === 'device' && a.combo_implant === undefined)) return result({ cls: '?', hits: [], route: '', reviewer: '', steps: [], documents: [], timeline: { label: '', source: '' }, incomplete: 'Answer the combination questions.' })
+  const kind = a.combo_form === 'single' ? 'single-entity' : a.combo_form === 'copackaged' ? 'co-packaged' : 'cross-labelled'
+  const rfd = { step: 'If the primary mode of action is unclear: request for designation', detail: 'Ask the Office of Combination Products, which designates the lead center within 60 days (21 CFR 3.7 and 3.8).' }
+  const part4 = 'Current good manufacturing practice for combination products (21 CFR Part 4): drug cGMP or the QMSR, plus the named provisions of the other'
+  if (a.combo_pmoa === 'device') {
+    const hit = { rule: '21 CFR 3.4', cls: a.combo_implant ? 'Class III' : 'Class II', text: `A ${kind} combination product whose primary mode of action is the device’s is assigned to CDRH, with a consult to CDER on the drug.` }
+    return result({ cls: a.combo_implant ? 'Class III' : 'Class II', hits: [hit], decisive: hit,
+      route: a.combo_implant ? 'Premarket approval (PMA), CDRH lead with a CDER consult' : '510(k) or De Novo, depending on the device type; CDRH lead with a CDER consult', reviewer: 'FDA CDRH, consulting CDER',
+      steps: [rfd, { step: 'Pre-Submission with CDRH and CDER', detail: 'Agree the drug data (chemistry, release kinetics, toxicology) inside the device submission.' }, { step: a.combo_implant ? 'IDE and PMA' : '510(k) or De Novo', detail: 'One submission covers both constituent parts.' }],
+      documents: ['Device submission covering the drug constituent part', 'Drug chemistry, manufacturing and controls, and safety data', part4],
+      timeline: a.combo_implant ? { label: 'MDUFA V goal: 180 FDA days without an advisory panel, 320 with one.', source: 'MDUFA V commitment letter' } : { label: 'MDUFA V goal: 90 FDA days for a 510(k), 150 for a De Novo.', source: 'MDUFA V commitment letter' },
+      facts: [{ label: 'Lead', value: 'CDRH' }, { label: 'Second review', value: 'Intercenter consult to CDER' }] })
+  }
+  const hit = { rule: '21 CFR 3.4', cls: 'Drug-led combination', text: `A ${kind} combination product whose primary mode of action is the drug’s is assigned to CDER (or CBER for a biologic), with a consult to CDRH on the device constituent.` }
+  return result({ cls: 'Drug-led combination', hits: [hit], decisive: hit, route: 'NDA (or BLA), CDER lead with a CDRH consult', reviewer: 'FDA CDER (or CBER), consulting CDRH',
+    steps: [rfd, { step: 'Design controls and human factors for the device part', detail: 'Device design controls apply to the device constituent under 21 CFR Part 4; human factors validation of the delivery device.' }, { step: 'NDA or BLA', detail: 'One application; CDRH reviews the device constituent.' }],
+    documents: ['NDA or BLA (CTD)', 'Device constituent: design verification and validation, human factors', part4],
+    timeline: { label: 'PDUFA goal for a new molecular entity: 10 months from the 60-day filing date (standard review). Indicative only.', source: 'PDUFA VII commitment letter' },
+    facts: [{ label: 'Lead', value: 'CDER (or CBER)' }, { label: 'Second review', value: 'Intercenter consult to CDRH' }] })
 }

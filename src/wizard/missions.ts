@@ -4,6 +4,7 @@ import { EU_PACK } from './eu'
 import type { Answers } from './questions'
 import { US_PACK, cliaFact } from './us'
 import { IN_PACK } from './in'
+import { n12Category, N12_TEXT, changeControl } from './sw'
 import { LIBRARY } from './library'
 import { MDR_CLASSES, IVDR_CLASSES, IN_CLASSES } from './engine'
 import type { RegionResult } from './types'
@@ -36,6 +37,8 @@ const fact = (r: RegionResult, label: string) => r.facts?.find((f) => f.label ==
 const IN_FORMS = ['Registration number (no licence)', 'MD-3 → MD-5 (loan licence MD-4 → MD-6)', 'MD-7 → MD-9 (loan licence MD-8 → MD-10)', 'MD-14 → MD-15']
 
 export function usRouteKey(r: RegionResult): string {
+  if (/Not regulated as a medical device/.test(r.route)) return 'Not a device'
+  if (/NDA/.test(r.route)) return 'NDA or BLA (CDER lead)'
   if (/Biologics License/.test(r.route)) return 'Biologics License Application (CBER)'
   if (/^Exempt/.test(r.route)) return 'Exempt: register and list'
   if (/Special 510/.test(r.route)) return 'Special 510(k)'
@@ -45,7 +48,7 @@ export function usRouteKey(r: RegionResult): string {
   if (/PMA/.test(r.route)) return 'Premarket approval (PMA)'
   return r.route
 }
-const US_ROUTES = ['Exempt: register and list', 'Traditional 510(k)', 'De Novo', 'Premarket approval (PMA)', 'Biologics License Application (CBER)']
+const US_ROUTES = ['Exempt: register and list', 'Traditional 510(k)', 'De Novo', 'Premarket approval (PMA)', 'Biologics License Application (CBER)', 'NDA or BLA (CDER lead)']
 
 function euClassTask(id: string): Task {
   const r = eu(id), d = device(id)
@@ -158,6 +161,46 @@ export const MISSIONS: Mission[] = [
       euClassTask('veloura-implant'), inClassTask('veloura-implant'),
       euClassTask('lumirinse-solution'), inClassTask('lumirinse-solution'),
       { id: 'mesh-why', deviceId: 'sutrafix-mesh', prompt: 'Why is the hernia mesh class III in the EU but class C in India?', options: ['India treats meshes as accessories', 'MDR rule 8 names surgical meshes as class III; India has no such rule, so the implant default (class C) applies', 'The EU counts it as an active implant', 'India classifies it by its sterility'], answer: 'MDR rule 8 names surgical meshes as class III; India has no such rule, so the implant default (class C) applies', hint: 'Compare the exceptions in MDR rule 8 with India’s implant rule.', explain: `${eu('sutrafix-mesh').decisive?.text} India: ${india('sutrafix-mesh').decisive?.text}` },
+    ],
+  },
+  {
+    id: 'is-it-device', title: 'Is it a device at all?', devices: ['rxcheck', 'sepsiswatch', 'heartnote'],
+    brief: 'A digital health company has three products: a drug interaction checker for prescribers, a sepsis alert for wards and an over-the-counter ECG app. Before classifying, decide which are devices in the US and the EU.',
+    tasks: () => [
+      { id: 'dev-rx-us', deviceId: 'rxcheck', prompt: 'RxCheck Interactions in the US?', options: ['Not a device', 'Traditional 510(k)', 'De Novo', 'Premarket approval (PMA)'], answer: usRouteKey(us('rxcheck')), hint: 'Check the four criteria of FD&C Act 520(o)(1)(E).', explain: us('rxcheck').decisive!.text },
+      { id: 'dev-rx-eu', deviceId: 'rxcheck', prompt: 'RxCheck Interactions in the EU: its class?', options: ['Not a device', 'I', 'IIa', 'IIb', 'III'], answer: eu('rxcheck').cls, hint: 'The EU has no clinical decision support exclusion.', explain: `${eu('rxcheck').decisive!.text} The EU has no exclusion for clinical decision support: software giving information for therapeutic decisions is at least class IIa.` },
+      { id: 'dev-sepsis-us', deviceId: 'sepsiswatch', prompt: 'SepsisWatch also works on records and is used by professionals. Why is it a device in the US?', options: ['It analyses a physiological signal', 'It is for patients', 'The decision is time-critical, so staff cannot independently review its basis', 'It is not a device'], answer: 'The decision is time-critical, so staff cannot independently review its basis', hint: 'FDA guidance of 6 January 2026, criterion 4.', explain: us('sepsiswatch').notes[0] },
+      { id: 'dev-ecg-us', deviceId: 'heartnote', prompt: 'HeartNote ECG in the US?', options: ['Not a device', 'Traditional 510(k)', 'De Novo', 'Premarket approval (PMA)'], answer: usRouteKey(us('heartnote')), hint: 'It analyses a physiological signal, and it is for consumers.', explain: `${us('heartnote').decisive!.text} ${us('heartnote').notes[0]}` },
+    ],
+  },
+  {
+    id: 'rule-11', title: 'Rule 11 and the N12 matrix', devices: ['triageview', 'heartnote', 'sepsiswatch'],
+    brief: 'Classify three software products under MDR rule 11, then find each one’s IMDRF N12 category. The category is a teaching aid that India’s draft guidance builds on; it is not a legal class.',
+    tasks: () => [
+      euClassTask('triageview'), euClassTask('heartnote'), euClassTask('sepsiswatch'),
+      ...['triageview', 'heartnote', 'sepsiswatch'].map((id) => { const c = n12Category(device(id).answers)!; return { id: `${id}-n12`, deviceId: id, prompt: `${device(id).name}: which IMDRF N12 category?`, options: ['I', 'II', 'III', 'IV'], answer: c, hint: 'Significance of the information (treat or diagnose, drive, inform) against the situation (critical, serious, non-serious).', explain: N12_TEXT[c] } }),
+    ],
+  },
+  {
+    id: 'ai-change', title: 'SepsisWatch learns', devices: ['sepsiswatch'],
+    brief: 'SepsisWatch is retrained every quarter. Plan how each new version can reach the wards in the US, the EU and India without starting again each time.',
+    tasks: () => [
+      { id: 'ai-us', deviceId: 'sepsiswatch', prompt: 'In the US, what lets planned retraining ship without a new submission each time?', options: ['A predetermined change control plan authorised with the device', 'A letter to file for every change', 'An annual report', 'Nothing: every change needs a new De Novo'], answer: 'A predetermined change control plan authorised with the device', hint: 'FD&C Act section 515C.', explain: changeControl('US', device('sepsiswatch').answers)[0].value },
+      { id: 'ai-eu', deviceId: 'sepsiswatch', prompt: 'In the EU, a retrained model that changes performance is…', options: ['A significant change needing the notified body’s approval before release', 'A non-significant change the manufacturer documents', 'Exempt as AI under the MDR', 'Assessed only under the AI Act'], answer: 'A significant change needing the notified body’s approval before release', hint: 'MDR Annex IX section 4.10 and MDCG 2020-3.', explain: changeControl('EU', device('sepsiswatch').answers)[0].value },
+      { id: 'ai-act', deviceId: 'sepsiswatch', prompt: 'Under the EU AI Act, SepsisWatch (class III, needs a notified body) is…', options: ['High-risk AI', 'Limited-risk AI with transparency duties only', 'Outside the AI Act because it is a device', 'Prohibited AI'], answer: 'High-risk AI', hint: 'Article 6(1): a safety component of a product that needs third-party conformity assessment.', explain: changeControl('EU', device('sepsiswatch').answers)[1].value },
+      { id: 'ai-in', deviceId: 'sepsiswatch', prompt: 'What does CDSCO’s draft software guidance propose for model updates?', options: ['An algorithm change protocol: document, validate and inform the regulator', 'A new licence for each update', 'Nothing: India does not regulate software', 'Approval by the ethics committee'], answer: 'An algorithm change protocol: document, validate and inform the regulator', hint: 'Draft of October 2025.', explain: changeControl('IN', device('sepsiswatch').answers)[0].value },
+    ],
+  },
+  {
+    id: 'combo-lead', title: 'Who leads a combination?', devices: ['velostent', 'dorva-pen'],
+    brief: 'Halvern’s drug-coated stent and Tessaly’s prefilled pen both combine a medicine and a device. For each, find the lead regulator and the second review it triggers.',
+    tasks: () => [
+      euClassTask('velostent'),
+      { id: 'vs-eu-second', deviceId: 'velostent', prompt: 'VeloStent in the EU: what second review does the drug coating trigger?', options: ['A medicines authority’s opinion on the substance, within 210 days', 'A full marketing authorisation for the drug', 'An expert panel opinion on the drug', 'None'], answer: 'A medicines authority’s opinion on the substance, within 210 days', hint: 'MDR rule 14 and Annex IX section 5.2.', explain: eu('velostent').steps.find((x) => /ancillary/.test(x.step))!.detail },
+      usRouteTask('velostent'),
+      { id: 'pen-eu', deviceId: 'dorva-pen', prompt: 'Dorvaglutide Pen in the EU: how is the pen assessed?', options: ['A notified body opinion on the pen, included in the medicine’s marketing authorisation application', 'A separate CE certificate under rule 14', 'Not at all: only the medicine is assessed', 'By the EMA’s device experts alone'], answer: 'A notified body opinion on the pen, included in the medicine’s marketing authorisation application', hint: 'MDR Article 117: a single integral product regulated as a medicine.', explain: eu('dorva-pen').steps[0].detail },
+      usRouteTask('dorva-pen'),
+      { id: 'pen-rfd', deviceId: 'dorva-pen', prompt: 'If the lead center were unclear, who decides, and how fast?', options: ['The Office of Combination Products, within 60 days of a request for designation', 'CDER and CDRH by agreement, no deadline', 'The sponsor chooses', 'An advisory committee'], answer: 'The Office of Combination Products, within 60 days of a request for designation', hint: '21 CFR 3.7 and 3.8.', explain: 'A request for designation goes to the Office of Combination Products, which designates the lead center within 60 days (21 CFR 3.8).' },
     ],
   },
 ]

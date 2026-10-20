@@ -133,8 +133,8 @@ describe('US IVD additions', () => {
 })
 
 describe('Phase 2 missions', () => {
-  it('nine missions; every task’s answer is one of its options, and right answers score 100', () => {
-    expect(MISSIONS.length).toBe(9)
+  it('every mission: every task’s answer is one of its options, and right answers score 100', () => {
+    expect(MISSIONS.length).toBeGreaterThanOrEqual(9)
     for (const m of MISSIONS) {
       const tasks = m.tasks()
       for (const t of tasks) expect(t.options, `${m.id}/${t.id}`).toContain(t.answer)

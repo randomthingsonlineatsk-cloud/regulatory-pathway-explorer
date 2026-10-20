@@ -5,6 +5,7 @@ import type { Answers } from './questions'
 import { US_PACK, cliaFact } from './us'
 import { IN_PACK } from './in'
 import { n12Category, N12_TEXT, changeControl } from './sw'
+import { CA_PACK, UK_PACK, AU_PACK, JP_PACK, CN_PACK, CH_PACK } from './packs4'
 import { LIBRARY } from './library'
 import { MDR_CLASSES, IVDR_CLASSES, IN_CLASSES } from './engine'
 import type { RegionResult } from './types'
@@ -202,6 +203,36 @@ export const MISSIONS: Mission[] = [
       usRouteTask('dorva-pen'),
       { id: 'pen-rfd', deviceId: 'dorva-pen', prompt: 'If the lead center were unclear, who decides, and how fast?', options: ['The Office of Combination Products, within 60 days of a request for designation', 'CDER and CDRH by agreement, no deadline', 'The sponsor chooses', 'An advisory committee'], answer: 'The Office of Combination Products, within 60 days of a request for designation', hint: '21 CFR 3.7 and 3.8.', explain: 'A request for designation goes to the Office of Combination Products, which designates the lead center within 60 days (21 CFR 3.8).' },
     ],
+  },
+  {
+    id: 'nine-hip', title: 'One hip, nine regions', devices: ['stridewell-hip', 'sutrafix-mesh'],
+    brief: 'Halvern wants the Stridewell Hip System and the Sutrafix Hernia Mesh everywhere. The same device can land in different classes: work out where, and what the Canadian licence involves.',
+    tasks: () => {
+      const hip = device('stridewell-hip').answers, mesh = device('sutrafix-mesh').answers
+      const ca = CA_PACK.classify(hip), ukMesh = UK_PACK.classify(mesh), euMesh = EU_PACK.classify(mesh)
+      return [
+        { id: 'hip-ca', deviceId: 'stridewell-hip', prompt: 'Stridewell Hip in Canada: which class?', options: ['I', 'II', 'III', 'IV'], answer: ca.cls, hint: 'Schedule 1, Part 1, rule 1: surgically invasive, 30 days or more.', explain: ca.decisive!.text },
+        { id: 'hip-ca-route', deviceId: 'stridewell-hip', prompt: 'What does Health Canada expect for it?', options: ['An MDSAP certificate and a licence review of about 15 + 60 days', 'An establishment licence only', 'A 510(k)', 'A notified body certificate'], answer: 'An MDSAP certificate and a licence review of about 15 + 60 days', hint: 'Class III medical device licence.', explain: ca.timeline.label },
+        { id: 'hip-au', deviceId: 'stridewell-hip', prompt: 'Stridewell Hip in Australia: which class?', options: ['IIa', 'IIb', 'III', 'AIMD'], answer: AU_PACK.classify(hip).cls, hint: 'Australia reclassified joint replacements.', explain: 'Joint replacements are class III in Australia, as in the EU.' },
+        { id: 'mesh-uk', deviceId: 'sutrafix-mesh', prompt: 'Sutrafix Mesh in Great Britain today: which class?', options: ['IIa', 'IIb', 'III'], answer: ukMesh.cls, hint: 'The UK still uses the directive rules.', explain: `${ukMesh.decisive!.text} In the EU it is class ${euMesh.cls} under MDR rule 8.` },
+        { id: 'mesh-uk-ce', deviceId: 'sutrafix-mesh', prompt: 'Until when does Great Britain accept a CE mark under the EU MDR?', options: ['30 June 2025', '30 June 2028', '30 June 2030', 'Indefinitely, decided in 2026'], answer: '30 June 2030', hint: 'Directive certificates have an earlier date.', explain: 'CE marks are accepted in Great Britain until 30 June 2028 for directive certificates and 30 June 2030 for EU MDR and IVDR certificates; indefinite recognition was deferred for further consultation.' },
+        { id: 'hip-jp', deviceId: 'stridewell-hip', prompt: 'In Japan, a class III hip needs…', options: ['Notification (todokede)', 'Certification by a registered body (ninsho) only', 'Approval (shonin) by MHLW after PMDA review, unless a designated certification standard covers it', 'Nothing'], answer: 'Approval (shonin) by MHLW after PMDA review, unless a designated certification standard covers it', hint: 'Highly controlled devices.', explain: JP_PACK.classify(hip).route },
+      ]
+    },
+  },
+  {
+    id: 'global-ai', title: 'TriageView goes global', devices: ['triageview'],
+    brief: 'Halvern Digital has CE and FDA clearance for TriageView Chest and now wants Canada, Australia, Japan, China, Switzerland and the UK. Find who must act for Halvern in each market and what each regulator needs.',
+    tasks: () => {
+      const a = device('triageview').answers
+      return [
+        { id: 'tv-ca', deviceId: 'triageview', prompt: 'TriageView in Canada: which class?', options: ['I', 'II', 'III', 'IV'], answer: CA_PACK.classify(a).cls, hint: 'Rule 10: diagnosis or monitoring software.', explain: CA_PACK.classify(a).decisive!.text },
+        { id: 'tv-ch', deviceId: 'triageview', prompt: 'Its EU certificate is accepted in Switzerland. What else is needed?', options: ['A Swiss authorised representative and swissdamed registration', 'A new Swiss conformity assessment', 'Nothing', 'An MDSAP certificate'], answer: 'A Swiss authorised representative and swissdamed registration', hint: 'The EU treats Switzerland as a third country.', explain: CH_PACK.classify(a).steps.slice(-2).map((x) => x.detail).join(' ') },
+        { id: 'tv-au', deviceId: 'triageview', prompt: 'Who applies for inclusion in the ARTG?', options: ['An Australian sponsor', 'Halvern directly from abroad', 'The hospital that buys it', 'A notified body'], answer: 'An Australian sponsor', hint: 'Australia’s register.', explain: AU_PACK.classify(a).steps[0].detail },
+        { id: 'tv-cn', deviceId: 'triageview', prompt: 'Who submits the registration in China?', options: ['A China legal agent, with Halvern as registrant', 'Halvern’s EU notified body', 'Any Chinese hospital', 'Nobody: CE is accepted'], answer: 'A China legal agent, with Halvern as registrant', hint: 'Foreign manufacturers cannot apply alone.', explain: CN_PACK.classify(a).steps[0].detail },
+        { id: 'tv-uk', deviceId: 'triageview', prompt: 'In Great Britain, what must a manufacturer outside the UK appoint?', options: ['A UK Responsible Person', 'A UK sponsor', 'A CH-REP', 'Nobody'], answer: 'A UK Responsible Person', hint: 'Also required after the reforms.', explain: UK_PACK.classify(a).steps.find((x) => /Responsible/.test(x.step))!.detail },
+      ]
+    },
   },
 ]
 

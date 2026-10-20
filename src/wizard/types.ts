@@ -6,7 +6,7 @@ export interface RuleHit {
   text: string        // plain-words statement of the rule part that applied
 }
 
-export type RegionId = 'EU' | 'US' | 'IN'
+export type RegionId = 'EU' | 'US' | 'IN' | 'UK' | 'CA' | 'AU' | 'JP' | 'CN' | 'CH'
 
 export interface RouteStep { step: string; detail: string }
 
@@ -30,6 +30,7 @@ export interface RegionPack {
   id: RegionId
   name: string
   regulator: string           // Explorer regulator key (links back to the regulator card)
+  basis?: 'rules' | 'estimate' // 'estimate': the region assigns class by product list; the pack estimates from the rules
   version: string
   asOf: string
   classify: (a: Answers) => RegionResult

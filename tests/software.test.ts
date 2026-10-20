@@ -65,7 +65,7 @@ describe('India: draft software classes', () => {
 })
 
 describe('combination products', () => {
-  const c: Answers = { kind: 'combination', combo_pmoa: 'device', combo_form: 'single', combo_implant: true, in_activity: 'import' }
+  const c: Answers = { kind: 'combination', combo_pmoa: 'device', combo_form: 'single', combo_implant: true, combo_heart: false, in_activity: 'import' }
   it('device-led: EU rule 14 class III with a 210-day consultation, US CDRH lead, India class D', () => {
     expect(EU_PACK.classify(c).cls).toBe('III')
     expect(EU_PACK.classify(c).steps.some((s) => /210 days/.test(s.detail))).toBe(true)

@@ -18,8 +18,10 @@ Compare how a health product moves from discovery to approval across 21 regulato
 - **IVD branch**: near-patient and self-tests, CLIA categories in the US (waived, moderate or high complexity), and **companion diagnostics** linked to a fictional medicine (Kestrenib, from the Clinical Trial Simulator): the EU medicines authority consultation, FDA's contemporaneous approval, and India's new-IVD route
 - **Software and AI**: is it a device at all (wellness, administration, and the four US clinical decision support criteria as read in FDA's January 2026 guidance), then EU rule 11, the US device type, and India's class under CDSCO's draft software guidance (October 2025). The IMDRF N12 category is shown as a teaching aid, and AI that learns gets each region's change-control route: the US predetermined change control plan, EU notified body approval of significant changes, India's draft algorithm change protocol, and the EU AI Act as a Watch item
 - **Combination products**: the primary mode of action decides the lead (EU rule 14 with a medicines authority opinion, or a medicine with an Article 117 notified body opinion; 21 CFR Part 3 with CDRH or CDER leading; India class D or a new drug)
+- **Nine regions**: the UK (UK MDR 2002, directive rules, with CE acceptance dates and the 2026 reforms as Watch), Canada (Schedule 1 rules, MDEL or MDL with MDSAP and Health Canada's review targets), Australia (Schedule 2 and 2A, AIMD, ARTG inclusion through an Australian sponsor), Japan (todokede, ninsho, shonin and PMDA targets), China (filing or registration, CMDE review) and Switzerland (EU rules, CH-REP, swissdamed). Japan and China assign classes by product list, so their classes are estimates and labelled as such. A comparison table shows all nine at once
+- **Certificate**: all IMDRF lessons and 10 missions passed at 70% or more, with a verification code
 - **Learn**: five short IMDRF lessons (GHTF classification, essential principles, MDSAP, N12, N81), each with a check question
-- A library of 29 fictional devices, from an adhesive strip to a pacemaker, a companion diagnostic, four software products and two combinations, and 13 scored missions at guided, standard and expert levels
+- A library of 29 fictional devices, from an adhesive strip to a pacemaker, a companion diagnostic, four software products and two combinations, and 15 scored missions at guided, standard and expert levels
 
 ## Phases of the classification wizard
 | Phase | Scope | Status |
@@ -28,7 +30,7 @@ Compare how a health product moves from discovery to approval across 21 regulato
 | 1 | Engine, EU (MDR and IVDR) and US packs, side-by-side results, 15 devices, 5 missions | Done |
 | 2 | India (Medical Devices Rules 2017), IVD branch in full with CLIA, companion diagnostics, 8 more devices, 4 missions | Done |
 | 3 | Software and AI, combination products, IMDRF lessons, 6 devices, 4 missions | Done |
-| 4 | UK, Canada, Australia, Japan, China and Switzerland; certificate | Planned |
+| 4 | UK, Canada, Australia, Japan, China and Switzerland; nine-region view; 2 missions; certificate | Done |
 
 ## Run it locally
 ```

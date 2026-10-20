@@ -42,7 +42,7 @@ export const LIBRARY: LibraryDevice[] = [
     id: 'keenedge-scalpel', name: 'Keenedge Single-Use Scalpel', maker: 'Quillon Surgical', group: 'Invasive',
     purpose: 'A sterile, single-use scalpel for cutting tissue during general surgery.',
     description: 'A stainless steel blade fixed to a plastic handle, used for minutes and then discarded. Not reusable.',
-    answers: { ...india, ...base, kind: 'device', active: false, invasive: 'surgical', duration: 'transient', surg: [], class1_flags: ['sterile'], us_type: 'scalpel' },
+    answers: { ...india, ...base, kind: 'device', active: false, invasive: 'surgical', duration: 'transient', surg: ['instrument'], class1_flags: ['sterile'], us_type: 'scalpel' },
     expect: { EU: 'IIa', US: 'Class I (510(k) exempt)', IN: 'B' },
   },
   {
@@ -210,7 +210,7 @@ export const LIBRARY: LibraryDevice[] = [
     id: 'velostent', name: 'VeloStent DES', maker: 'Halvern Medtech', group: 'Combination',
     purpose: 'A coronary stent coated with a fictional antiproliferative drug that limits re-narrowing of the artery.',
     description: 'The stent holds the artery open; the drug only supports that action. Implanted permanently.',
-    answers: { kind: 'combination', in_activity: 'import', combo_pmoa: 'device', combo_form: 'single', combo_implant: true },
+    answers: { kind: 'combination', in_activity: 'import', combo_pmoa: 'device', combo_form: 'single', combo_implant: true, combo_heart: true },
     expect: { EU: 'III', US: 'Class III', IN: 'D' },
   },
   {

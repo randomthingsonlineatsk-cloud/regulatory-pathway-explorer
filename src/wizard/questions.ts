@@ -166,6 +166,7 @@ export const QUESTIONS: Question[] = [
       { id: 'heart_defect', label: 'Specifically controls, diagnoses, monitors or corrects a defect of the heart or central circulatory system through direct contact' },
       { id: 'heart_cns', label: 'Specifically used in direct contact with the heart, the central circulatory system or the central nervous system' },
       { id: 'reusable', label: 'It is a reusable surgical instrument (transient use)' },
+      { id: 'instrument', label: 'It is a surgical or dental instrument (a scalpel, forceps), single-use or reusable' },
       { id: 'ionizing', label: 'Supplies energy as ionising radiation' },
       { id: 'biological', label: 'Has a biological effect, or is wholly or mainly absorbed' },
       { id: 'chemical', label: 'Undergoes chemical change in the body (short term, not placed in the teeth)' },
@@ -499,6 +500,11 @@ export const QUESTIONS: Question[] = [
     id: 'combo_implant', section: 'Combination', type: 'bool', showIf: (a) => isCombo(a) && a.combo_pmoa === 'device',
     text: 'Is the device part implanted, or life-supporting or life-sustaining?',
     why: 'US: a high-risk device-led combination usually needs premarket approval (PMA); lower-risk ones can use 510(k) or De Novo.',
+  },
+  {
+    id: 'combo_heart', section: 'Combination', type: 'bool', showIf: (a) => isCombo(a) && a.combo_pmoa === 'device' && a.combo_implant === true,
+    text: 'Is the device part in contact with the heart, the central circulation or the central nervous system?',
+    why: 'Canada (rule 1), Japan and India put such devices in their highest class.',
   },
 
   // ---------------------------------------------------------------- US

@@ -7,11 +7,13 @@ import { US_OPTIONS } from './us'
 import { classifyAll, PACKS, MDR_CLASSES, IVDR_CLASSES, IN_CLASSES } from './engine'
 import { LIBRARY, type LibraryDevice } from './library'
 import { MISSIONS, scoreMission, usRouteKey, type Level, type Task } from './missions'
-import { loadAttempts, saveAttempt, loadProfiles, saveProfile, deleteProfile } from './store'
+import { loadAttempts, saveAttempt, loadProfiles, saveProfile, deleteProfile, loadLessons, saveLesson, userId } from './store'
+import { eligibility, verificationCode, PASS, MISSIONS_NEEDED } from './cert'
 import type { RegionResult } from './types'
 import { LESSONS } from './learn'
 
-const REGION_COLOR: Record<string, string> = { EU: 'hsl(258 70% 65%)', US: 'hsl(208 85% 58%)', IN: 'hsl(30 80% 55%)' }
+const REGION_COLOR: Record<string, string> = { EU: 'hsl(258 70% 65%)', US: 'hsl(208 85% 58%)', IN: 'hsl(30 80% 55%)', UK: 'hsl(220 70% 60%)', CA: 'hsl(0 70% 62%)', AU: 'hsl(152 55% 48%)', JP: 'hsl(340 65% 60%)', CN: 'hsl(38 92% 55%)', CH: 'hsl(0 65% 55%)' }
+const classLabel = (c: string) => (/^Class |^[IVX]+[a-z]*$|^[ABCD]$/.test(c) ? `Class ${c.replace(/^Class /, '')}` : c)
 const chip = (on: boolean, color = 'hsl(var(--lab-text))') => (on ? { borderColor: color, color } : { borderColor: 'hsl(var(--lab-line))', color: 'hsl(var(--lab-text-muted))' })
 
 function download(name: string, text: string, type = 'text/csv') {
@@ -27,7 +29,7 @@ function ResultCard({ r, hidden }: { r: RegionResult; hidden?: boolean }) {
     <Card className="border-2 bg-lab-panel gap-3" style={{ borderColor: color }}>
       <CardHeader className="pb-0">
         <CardDescription className="font-mono text-[11px] text-lab-text-muted">{pack.name} · {r.regulation}</CardDescription>
-        <CardTitle className="font-mono text-lg" style={{ color }}>{hidden ? 'Class hidden until you check' : r.incomplete ? 'Not enough answers yet' : /^Class |^[IVX]+[a-z]*$|^[ABCD]$/.test(r.cls) ? `Class ${r.cls.replace(/^Class /, '')}` : r.cls}</CardTitle>
+        <CardTitle className="font-mono text-lg" style={{ color }}>{hidden ? 'Class hidden until you check' : r.incomplete ? 'Not enough answers yet' : classLabel(r.cls)}{!hidden && !r.incomplete && pack.basis === 'estimate' && <span className="text-[10px] font-mono text-lab-amber align-middle"> estimate</span>}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {r.incomplete && <p className="text-lab-text-muted">{r.incomplete}</p>}
@@ -120,6 +122,7 @@ function Wizard({ answers, setAnswers, title }: { answers: Answers; setAnswers: 
   const [guess, setGuess] = useState<{ EU?: string; US?: string; IN?: string }>({})
   const [checked, setChecked] = useState(false)
   const [name, setName] = useState('')
+  const [shown, setShown] = useState<string[]>(['EU', 'US', 'IN'])
   const results = useMemo(() => classifyAll(answers), [answers])
   const done = firstOpen < 0
   const cur = questions[Math.min(idx, questions.length - 1)]
@@ -179,8 +182,24 @@ function Wizard({ answers, setAnswers, title }: { answers: Answers; setAnswers: 
         </p>
       )}
 
+      {done && !(guessMode && !checked) && (
+        <div className="overflow-x-auto rounded border border-lab-line bg-lab-panel">
+          <table className="w-full text-xs">
+            <thead><tr className="text-left font-mono text-lab-text-muted"><th className="p-2">Region</th><th className="p-2">Class</th><th className="p-2">Route</th><th className="p-2 hidden md:table-cell">Timeline</th></tr></thead>
+            <tbody>{results.map((r) => (
+              <tr key={r.region} className="border-t border-lab-line align-top">
+                <td className="p-2 font-mono whitespace-nowrap"><button className="hover:underline" style={{ color: REGION_COLOR[r.region] }} onClick={() => setShown(shown.includes(r.region) ? shown.filter((x) => x !== r.region) : [...shown, r.region])}>{PACKS.find((p) => p.id === r.region)!.name}</button></td>
+                <td className="p-2 font-mono text-lab-text whitespace-nowrap">{r.incomplete ? '…' : classLabel(r.cls)}{PACKS.find((p) => p.id === r.region)!.basis === 'estimate' && !r.incomplete ? ' (est.)' : ''}</td>
+                <td className="p-2 text-lab-text-muted">{r.incomplete ? r.incomplete : r.route}</td>
+                <td className="p-2 text-lab-text-muted hidden md:table-cell">{r.timeline.label}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+          <p className="p-2 text-[10px] text-lab-text-muted">Click a region to show or hide its full card below. (est.) = the region assigns class by a product list; the pack estimates it from the rules.</p>
+        </div>
+      )}
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {results.map((r) => <ResultCard key={r.region} r={r} hidden={guessMode && !checked} />)}
+        {results.filter((r) => shown.includes(r.region)).map((r) => <ResultCard key={r.region} r={r} hidden={guessMode && !checked} />)}
       </div>
 
       {Object.keys(answers).length > 0 && (
@@ -350,7 +369,7 @@ function Learn() {
                 {l.body.map((b, k) => <p key={k} className="text-sm text-lab-text">{b}</p>)}
                 <p className="text-xs font-mono text-lab-text-muted">Source: {l.source}</p>
                 <p className="text-sm text-lab-text pt-1">{l.check.prompt}</p>
-                {l.check.options.map((o) => <Button key={o} variant="outline" className="w-full h-auto justify-start text-left border-2 whitespace-normal py-2" style={chip(pick === o, pick === undefined ? undefined : o === l.check.answer ? 'hsl(var(--lab-cdsco))' : 'hsl(var(--lab-red))')} onClick={() => setPicks({ ...picks, [l.id]: o })}>{o}</Button>)}
+                {l.check.options.map((o) => <Button key={o} variant="outline" className="w-full h-auto justify-start text-left border-2 whitespace-normal py-2" style={chip(pick === o, pick === undefined ? undefined : o === l.check.answer ? 'hsl(var(--lab-cdsco))' : 'hsl(var(--lab-red))')} onClick={() => { setPicks({ ...picks, [l.id]: o }); saveLesson(l.id, o === l.check.answer) }}>{o}</Button>)}
                 {pick && <p className="text-xs text-lab-text-muted">{pick === l.check.answer ? '✓ ' : '✗ '}{l.check.explain}</p>}
                 {pick && i < LESSONS.length - 1 && <Button size="sm" className="font-mono" onClick={() => setOpen(LESSONS[i + 1].id)}>Next lesson</Button>}
               </CardContent>
@@ -362,9 +381,40 @@ function Learn() {
   )
 }
 
+// ---------------------------------------------------------------------------------- certificate
+function Certificate() {
+  const [name, setName] = useState('')
+  const e = eligibility(LESSONS.map((l) => l.id), loadLessons(), loadAttempts())
+  const date = new Date().toISOString().slice(0, 10)
+  const code = verificationCode(userId(), name, date, e.passed)
+  return (
+    <div className="space-y-3">
+      <Card className="bg-lab-panel border-lab-line gap-2 py-4"><CardContent className="space-y-1 text-sm">
+        <p className="text-lab-text">To earn the certificate: answer all {LESSONS.length} IMDRF lessons correctly, and pass at least {MISSIONS_NEEDED} different missions with {PASS}% or more.</p>
+        <p className="font-mono text-xs text-lab-text-muted">Lessons: {e.lessonsDone.length} of {LESSONS.length} · Missions passed: {e.passed.length} of {MISSIONS_NEEDED} ({MISSIONS.length} available)</p>
+      </CardContent></Card>
+      {e.ok ? (
+        <>
+          <Input value={name} onChange={(x) => setName(x.target.value)} placeholder="Your name as it should appear" className="bg-lab-panel-strong border-lab-line text-lab-text font-mono max-w-sm" />
+          {name.trim() && (
+            <div className="rounded border-4 border-double border-lab-cdsco bg-lab-panel p-6 text-center space-y-2 print:bg-white print:text-black">
+              <p className="font-mono text-xs uppercase tracking-widest text-lab-text-muted">Certificate of completion · training only</p>
+              <p className="text-xl text-lab-text">{name.trim()}</p>
+              <p className="text-sm text-lab-text">has completed the Device and IVD Classification Wizard: {LESSONS.length} IMDRF lessons and {e.passed.length} missions across nine regions.</p>
+              <p className="font-mono text-xs text-lab-text-muted">{date} · Verification code {code}</p>
+              <p className="text-[10px] text-lab-text-muted">Educational practice with fictional devices; not a professional qualification. Built by Khan Gulrez Shagufa Fazal Ahmed.</p>
+            </div>
+          )}
+          {name.trim() && <Button variant="outline" className="border-2 font-mono" onClick={() => window.print()}>Print or save as PDF</Button>}
+        </>
+      ) : <p className="text-sm text-lab-amber">Not yet: keep going in Learn and Missions.</p>}
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------------- view
 export default function ClassifyView({ startKind }: { startKind?: 'device' | 'ivd' }) {
-  const [tab, setTab] = useState<'wizard' | 'library' | 'missions' | 'learn'>('wizard')
+  const [tab, setTab] = useState<'wizard' | 'library' | 'missions' | 'learn' | 'certificate'>('wizard')
   const [answers, setAnswers] = useState<Answers>(startKind ? { kind: startKind } : {})
   const [title, setTitle] = useState('')
   const [key, setKey] = useState(0)
@@ -372,17 +422,18 @@ export default function ClassifyView({ startKind }: { startKind?: 'device' | 'iv
     <div className="space-y-4">
       <Card className="bg-lab-panel border-lab-line gap-2 py-4">
         <CardContent>
-          <p className="text-sm text-lab-text">Describe a device, an IVD, software or a medicine-device combination once and see how the EU (MDR or IVDR), the US (FDA) and India (Medical Devices Rules, 2017) classify it, which rule decides, the route or licence, the documents and an indicative timeline.</p>
-          <p className="text-xs text-lab-text-muted mt-1">The UK, Canada, Australia, Japan, China and Switzerland are coming in a later phase.</p>
+          <p className="text-sm text-lab-text">Describe a device, an IVD, software or a medicine-device combination once and see how nine regions classify it (the EU, the US, India, the UK, Canada, Australia, Japan, China and Switzerland), which rule decides, the route or licence, the documents and an indicative timeline.</p>
+          <p className="text-xs text-lab-text-muted mt-1">Japan and China assign classes by product list; their results are estimates from the rules and are marked as such.</p>
         </CardContent>
       </Card>
       <div className="flex gap-2 flex-wrap">
-        {(['wizard', 'library', 'missions', 'learn'] as const).map((t) => <Button key={t} variant="outline" size="sm" className="border-2 font-mono capitalize" style={chip(tab === t)} onClick={() => setTab(t)}>{t === 'library' ? 'Device library' : t === 'learn' ? 'Learn (IMDRF)' : t}</Button>)}
+        {(['wizard', 'library', 'missions', 'learn', 'certificate'] as const).map((t) => <Button key={t} variant="outline" size="sm" className="border-2 font-mono capitalize" style={chip(tab === t)} onClick={() => setTab(t)}>{t === 'library' ? 'Device library' : t === 'learn' ? 'Learn (IMDRF)' : t}</Button>)}
       </div>
       {tab === 'wizard' && <Wizard key={key} answers={answers} setAnswers={setAnswers} title={title} />}
       {tab === 'library' && <Library onOpen={(d) => { setAnswers(d.answers); setTitle(d.name); setKey((k) => k + 1); setTab('wizard') }} />}
       {tab === 'missions' && <Missions />}
       {tab === 'learn' && <Learn />}
+      {tab === 'certificate' && <Certificate />}
     </div>
   )
 }

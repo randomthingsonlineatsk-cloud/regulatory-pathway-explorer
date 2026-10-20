@@ -29,3 +29,7 @@ export function saveAttempt(a: Omit<Attempt, 'userId' | 'classId' | 'at'>): Atte
   set('rpe_attempts', [full, ...loadAttempts()].slice(0, 200))
   return full
 }
+
+// Lessons answered correctly, for the certificate.
+export const loadLessons = () => get<Record<string, boolean>>('rpe_lessons', {})
+export function saveLesson(id: string, correct: boolean) { set('rpe_lessons', { ...loadLessons(), [id]: correct || !!loadLessons()[id] }) }

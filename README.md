@@ -2,7 +2,7 @@
 
 This branch holds the original version of the app, exactly as it was built on Macaly Cloud (TanStack Start, React, Tailwind CSS), moved to GitHub without feature changes. It is a static app with no backend: 21 regulators, 13 product categories, a stage-by-stage pathway, side-by-side comparison and a timeline chart.
 
-The `main` branch is the newer, extended version (device classification wizard and regional packs). It is a separate rebuild, not an upgrade of this code.
+The [`main` branch](https://github.com/randomthingsonlineatsk-cloud/regulatory-pathway-explorer) is the newer, extended version (device classification wizard and regional packs). It is a separate rebuild, not an upgrade of this code, and keeps all of this version's content. The extended version is live at https://regulatory-pathway-explorer.randomthingsonlineatsk.workers.dev and https://randomthingsonlineatsk-cloud.github.io/regulatory-pathway-explorer/.
 
 > This is a fictional, educational demonstration. Do not use it for real patient data, clinical decisions or regulatory submissions.
 

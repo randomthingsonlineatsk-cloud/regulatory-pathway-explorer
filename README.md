@@ -4,7 +4,7 @@ Compare how a health product moves from discovery to approval across 21 regulato
 
 **Live site:** https://randomthingsonlineatsk-cloud.github.io/regulatory-pathway-explorer/
 
-**Original version:** the unchanged copy moved from Macaly is kept in this repository as the [`macaly-original` tag](https://github.com/randomthingsonlineatsk-cloud/regulatory-pathway-explorer/tree/macaly-original). New features are built on top of it.
+**Original version:** the unchanged copy moved from Macaly is kept in this repository's history, in [commit 314cbf2](https://github.com/randomthingsonlineatsk-cloud/regulatory-pathway-explorer/tree/314cbf2712c07c4fc0c2d87118153d1490bbadda). New features are built on top of it.
 
 > This is a fictional, educational demonstration. Do not use it for real patient data, clinical decisions or regulatory submissions.
 

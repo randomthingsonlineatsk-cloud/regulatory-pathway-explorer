@@ -2,9 +2,11 @@
 
 Compare how a health product moves from discovery to approval across 21 regulators and 13 product categories.
 
-**Live site:** https://randomthingsonlineatsk-cloud.github.io/regulatory-pathway-explorer/
+**Live sites (this extended version):**
+- Cloudflare: https://regulatory-pathway-explorer.randomthingsonlineatsk.workers.dev
+- GitHub Pages: https://randomthingsonlineatsk-cloud.github.io/regulatory-pathway-explorer/
 
-**Original version:** the unchanged copy moved from Macaly is kept in this repository's history, in [commit 314cbf2](https://github.com/randomthingsonlineatsk-cloud/regulatory-pathway-explorer/tree/314cbf2712c07c4fc0c2d87118153d1490bbadda). New features are built on top of it.
+**Original Macaly version:** the unchanged copy moved from Macaly is on the [`macaly-original` branch](https://github.com/randomthingsonlineatsk-cloud/regulatory-pathway-explorer/tree/macaly-original). This `main` branch is a separate rebuild that keeps all of the original's content and adds the device classification wizard.
 
 > This is a fictional, educational demonstration. Do not use it for real patient data, clinical decisions or regulatory submissions.
 
@@ -39,6 +41,11 @@ npm test
 npm run dev
 ```
 `npm run build` writes the static site to `dist/`. It uses relative paths, so it works from any GitHub Pages path.
+
+## Deploy (Cloudflare Workers)
+- Production branch: `main`
+- Build command: `npm install && npm run build`
+- Deploy command: `npx wrangler deploy --assets dist --name regulatory-pathway-explorer --compatibility-date 2026-01-01`
 
 ## Tech stack
 React, TypeScript, Vite and Tailwind CSS. It is a static site with no server and no sign-in. It was first built on Macaly Cloud and moved here in October 2026.
